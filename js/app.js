@@ -123,7 +123,7 @@ async function loadEvents() {
   } catch {
     state.events = (await db.get('settings', 'events-cache'))?.value || { events: [], fetchedAt: 0 };
   }
-  if (['inicio', 'eventos'].includes(route()) && !document.querySelector('dialog[open]')) rerender();
+  if (['inicio', 'novedades'].includes(route()) && !document.querySelector('dialog[open]')) rerender();
 }
 
 // Pide al navegador que no borre nunca los datos guardados (sesiones y fotos).
@@ -145,7 +145,7 @@ async function loadGym(force = false) {
   state.gymLoading = true;
   if (['sala', 'nueva'].includes(route())) rerender();
   try { state.gym = await S.getGym({ force }); } finally { state.gymLoading = false; }
-  if (['sala', 'inicio', 'nueva', 'perfil', 'eventos', 'progreso', 'objetivos'].includes(route()) && !document.querySelector('dialog[open]')) rerender();
+  if (['sala', 'inicio', 'nueva', 'perfil', 'novedades', 'progreso', 'objetivos'].includes(route()) && !document.querySelector('dialog[open]')) rerender();
 }
 
 // ---------------- Router ----------------
@@ -160,8 +160,9 @@ const routes = [
   [/^#\/sala$/, viewGym, 'sala'],
   [/^#\/progreso$/, viewProgress, 'progreso'],
   [/^#\/cuerpo$/, viewProgress, 'progreso'],
-  [/^#\/ajustes$/, viewSettings, 'perfil'],
-  [/^#\/eventos$/, viewEvents, 'eventos'],
+  [/^#\/ajustes$/, viewSettings, 'ajustes'],
+  [/^#\/eventos$/, viewEvents, 'novedades'],
+  [/^#\/novedades$/, viewEvents, 'novedades'],
   [/^#\/objetivos$/, viewObjectives, 'objetivos'],
   [/^#\/logros$/, viewObjectives, 'objetivos'],
 ];
@@ -369,9 +370,11 @@ function itemTile(x, status, { inSession = null, showGrade = true } = {}) {
 }
 
 // ---------------- Inicio ----------------
+// Bienvenida: la primera vez y, una vez más, al pasar la app a otra sala (cambian los colores).
+const needsWelcome = () => (!state.sessions.length && !set().onboarded) || (set().onboarded && set().onboardedGym !== S.GYM.id);
 function viewHome() {
   const s = realSessions();
-  if (!state.sessions.length && !set().onboarded) return viewOnboarding();
+  if (needsWelcome()) return viewOnboarding();
   const name = set().name?.trim();
   const now = new Date();
   const wk = I.weekStart(now).getTime();
@@ -537,13 +540,17 @@ function evTile(e) {
   </a>`;
 }
 
+// Inicio: tus próximos planes y los bloques nuevos de la semana (Sputnik no publica agenda).
 function homeEvents() {
   const now = new Date();
   const upcoming = allEvents().filter((e) => evDate(e.end || e.start) >= now);
-  const fresh = gymItems().filter((x) => Date.now() - x.date < WEEK).length;
-  return `<section class="home-events"><div class="section-head"><h2 class="section-title">Eventos</h2><a href="#/eventos">Ver todo</a></div>
+  const fresh = gymItems().filter((x) => Date.now() - x.date < WEEK);
+  const nb = fresh.filter((x) => x.kind !== 'route').length; const nr = fresh.length - nb;
+  const what = [nb ? plural(nb, 'bloque nuevo', 'bloques nuevos') : '', nr ? plural(nr, 'vía nueva', 'vías nuevas') : ''].filter(Boolean).join(' y ');
+  return `<section class="home-events"><div class="section-head"><h2 class="section-title">Novedades</h2><a href="#/novedades">Ver todo</a></div>
+    ${fresh.length ? `<a class="card ev-empty" href="#/novedades"><span>🧗</span><div><b>${esc(cap(what))} esta semana</b><small>Mira en qué sectores han montado</small></div>${icon('chevron', 'muted')}</a>` : ''}
     ${upcoming.length ? `<div class="ev-carousel">${upcoming.slice(0, 6).map((e) => evTile(e)).join('')}</div>`
-      : `<a class="card ev-empty" href="#/eventos"><span>🎉</span><div><b>Sin eventos próximos</b><small>${fresh ? `Pero hay ${plural(fresh, 'bloque nuevo', 'bloques nuevos')} en la sala esta semana` : 'Mira las novedades de la sala'}</small></div>${icon('chevron', 'muted')}</a>`}
+      : `<button class="card ev-empty" data-action="myev-add"><span>📅</span><div><b>Apunta tus planes</b><small>Competiciones, promociones o quedadas que veas en el Instagram de Sputnik</small></div>${icon('plus', 'muted')}</button>`}
   </section>`;
 }
 
@@ -571,19 +578,15 @@ function viewEvents() {
   const past = evs.filter((e) => evDate(e.end || e.start) < now).reverse().slice(0, 6);
   const blocks = newBlocks(30).slice(0, 8);
   const scale = M.boulderScale(set());
-  const fetched = state.events?.fetchedAt;
-  return `<section class="ev-hero">
+  return `<div class="topline"><a href="#/inicio" class="back">${icon('back')} Inicio</a></div>
+    <section class="ev-hero">
       <p class="eyebrow">${esc(S.GYM.name)}</p>
-      <h1>Eventos</h1>
-      <p>Lo que pasa en tu rocódromo: eventos, bloques nuevos y planes.</p>
-      <button class="btn light sm" data-action="myev-add">${icon('plus')} Apuntar evento</button>
+      <h1>Novedades</h1>
+      <p>Lo último que han montado en la sala y tus planes en el rocódromo.</p>
+      <button class="btn light sm" data-action="myev-add">${icon('plus')} Apuntar un plan</button>
     </section>
-    <h2 class="section-title">Próximos</h2>
-    ${upcoming.length ? `<div class="list">${upcoming.map((e) => eventCard(e)).join('')}</div>`
-      : `<div class="card ev-none"><span>📭</span><div><b>No hay eventos publicados</b><small>Sputnik no publica una agenda en su web. ¿Has visto algo en su Instagram (competiciones, promociones, cursos…)? Apúntalo arriba.</small></div></div>`}
-    <a class="card ig" href="${GYM_IG}" target="_blank" rel="noopener"><span class="ig-ic">📷</span><div><b>Instagram de Sputnik Climbing</b><small>Promociones, avisos y novedades del día a día</small></div>${icon('external', 'muted')}</a>
-    ${blocks.length ? `<div class="section-head"><h2 class="section-title">Bloques nuevos</h2><a href="#/sala" data-action="gym-filter-new">Ver en la sala</a></div>
-      <div class="nb-carousel">${blocks.map((b) => {
+    <div class="section-head"><h2 class="section-title">Bloques nuevos</h2><a href="#/sala" data-action="gym-filter-new">Ver en la sala</a></div>
+    ${blocks.length ? `<div class="nb-carousel">${blocks.map((b) => {
         const byColor = {};
         b.list.forEach((x) => { byColor[x.grade] = (byColor[x.grade] || 0) + 1; });
         const dots = Object.entries(byColor).sort((x, y) => (scale.findIndex((g) => g.name === x[0]) - scale.findIndex((g) => g.name === y[0])) || x[0].localeCompare(y[0]))
@@ -593,15 +596,19 @@ function viewEvents() {
           <span class="nb-n">${b.list.length}<em>${b.list[0].kind === 'route' ? (b.list.length === 1 ? 'vía nueva' : 'vías nuevas') : (b.list.length === 1 ? 'bloque nuevo' : 'bloques nuevos')}</em></span>
           <span class="nb-dots">${dots}</span>
         </button>`;
-      }).join('')}</div>` : ''}
+      }).join('')}</div>` : '<p class="muted small">No hay bloques nuevos en el último mes.</p>'}
+    <h2 class="section-title">Tus planes</h2>
+    ${upcoming.length ? `<div class="list">${upcoming.map((e) => eventCard(e)).join('')}</div>`
+      : `<div class="card ev-none"><span>📅</span><div><b>Nada apuntado</b><small>Sputnik no publica una agenda en su web. Si ves una competición, promoción o quedada en su Instagram, apúntala aquí.</small></div></div>`}
+    <a class="card ig" href="${GYM_IG}" target="_blank" rel="noopener"><span class="ig-ic">📷</span><div><b>Instagram de Sputnik Climbing</b><small>Competiciones, promociones y avisos del día a día</small></div>${icon('external', 'muted')}</a>
     ${past.length ? `<h2 class="section-title">Anteriores</h2><div class="ev-carousel">${past.map((e) => evTile(e)).join('')}</div>` : ''}
-    <p class="muted small center src">Los bloques nuevos se actualizan solos cada día${fetched ? ` · última vez ${ago(fetched)}` : ''}.</p>`;
+    <p class="muted small center src">Los bloques nuevos se actualizan solos cada día.</p>`;
 }
 
 function myEventSheet() {
   openSheet(`<div class="sheet">
     <div class="grabber"></div>
-    <div class="sheet-head"><button class="link" data-action="close-sheet" type="button">Cancelar</button><b>Apuntar evento</b><span></span></div>
+    <div class="sheet-head"><button class="link" data-action="close-sheet" type="button">Cancelar</button><b>Apuntar un plan</b><span></span></div>
     <div class="sheet-body">
       <label class="field"><span>¿Qué es?</span><input data-myev="title" placeholder="p. ej. Black Friday en Sputnik" maxlength="80"></label>
       <div class="two"><label class="field"><span>Empieza</span><input type="date" data-myev="date" value="${I.today()}"></label>
@@ -609,7 +616,7 @@ function myEventSheet() {
       <label class="field"><span>Nota <small class="muted">opcional</small></span><textarea data-myev="note" rows="2" placeholder="p. ej. 20% en abonos y material"></textarea></label>
       <label class="field"><span>Enlace <small class="muted">opcional</small></span><input data-myev="url" type="url" placeholder="https://…"></label>
     </div>
-    <div class="sheet-foot"><button class="btn primary block" data-action="myev-save">Guardar evento</button></div></div>`);
+    <div class="sheet-foot"><button class="btn primary block" data-action="myev-save">Guardar plan</button></div></div>`);
 }
 
 function backupCard() {
@@ -647,7 +654,7 @@ function viewOnboarding() {
         <li>${icon('chart')}<div><b>Mira cómo mejoras</b><small>Tu color más difícil, tus colores y tu constancia.</small></div></li>
       </ul>
       <button class="btn primary block big" data-action="onb-next">Empezar</button>
-      <button class="btn ghost block" data-action="demo">Ver con datos de ejemplo</button>
+      ${state.sessions.length ? '' : '<button class="btn ghost block" data-action="demo">Ver con datos de ejemplo</button>'}
     </div>`;
   }
   const scale = M.boulderScale(set()).filter((g) => !g.joker);
@@ -1450,8 +1457,7 @@ function viewSettings() {
   const st = set();
   const scale = M.boulderScale(st);
   const demoCount = state.sessions.filter((s) => s.demo).length;
-  return `<div class="topline"><a href="#/perfil" class="back">${icon('back')} Perfil</a></div>
-    <h1 class="page-title">Ajustes</h1>
+  return `<h1 class="page-title">Ajustes</h1>
     <div class="card form">
       <div class="set-avatar"><label class="prof-photo sm" aria-label="Cambiar foto">${avatarHTML('lg')}<span class="prof-cam">${icon('camera')}</span><input type="file" accept="image/*" data-upload="avatar" hidden></label>
         <div><b>Foto de perfil</b><small class="muted">Toca para cambiarla</small>${state.avatarURL ? '<button class="link danger" data-action="avatar-del">Quitar foto</button>' : ''}</div></div>
@@ -1642,7 +1648,7 @@ async function importData(file) {
     const photos = await Promise.all((data.photos || []).map(async ({ data: url, ...p }) => ({ ...p, blob: await dataURLToBlob(url) })));
     await db.putMany('sessions', sessions);
     await db.putMany('photos', photos);
-    state.settings = { ...state.settings, ...incoming, key: 'settings', dataVersion: DATA_VERSION, onboarded: true };
+    state.settings = { ...state.settings, ...incoming, key: 'settings', dataVersion: DATA_VERSION, onboarded: true, onboardedGym: S.GYM.id };
     await saveSettings();
     sessions.forEach((s) => { const i = state.sessions.findIndex((x) => x.id === s.id); if (i >= 0) state.sessions[i] = s; else state.sessions.push(s); });
     photos.forEach((p) => state.photos.set(p.id, p));
@@ -1661,7 +1667,7 @@ const actions = {
     const sessions = makeDemo(set(), state.gym);
     await db.putMany('sessions', sessions);
     state.sessions.push(...sessions);
-    state.settings.onboarded = true; state.settings.seenAch = I.unlockedKeys(achievementsNow()); await saveSettings();
+    state.settings.onboarded = true; state.settings.onboardedGym = S.GYM.id; state.settings.seenAch = I.unlockedKeys(achievementsNow()); await saveSettings();
     toast('Datos de ejemplo cargados');
     go('#/inicio');
   },
@@ -1694,7 +1700,7 @@ const actions = {
   },
   'onb-next'() { state.ui.onb = 1; render({ transition: true }); },
   async 'onb-done'() {
-    state.settings.onboarded = true;
+    state.settings.onboarded = true; state.settings.onboardedGym = S.GYM.id;
     const d = new Date(); d.setDate(d.getDate() - 7); state.settings.planSince = I.toISO(d);
     await saveSettings(); state.ui.onb = 0; render({ transition: true });
   },
@@ -1907,7 +1913,7 @@ const actions = {
     const url = val('url');
     const ev = { id: uid(), title, date, end: val('end') && val('end') >= date ? val('end') : '', note: val('note'), url: /^https?:\/\//.test(url) ? url : '' };
     state.settings.myEvents = [...(set().myEvents || []), ev];
-    await saveSettings(); closeSheet(); toast('Evento apuntado 📅'); rerender();
+    await saveSettings(); closeSheet(); toast('Plan apuntado 📅'); rerender();
   },
   async 'myev-del'(el) {
     if (!armed(el, '¿Seguro? Toca otra vez')) return;

@@ -9,9 +9,9 @@ Funciona en el móvil, se puede instalar en la pantalla de inicio y funciona sin
 
 **Registrar una sesión en segundos:** Clase o Libre (con quién fuiste), y contadores por color de *conseguidos* e *intentados* («3 amarillos, 1 morado intentado»). Si te acuerdas de cuál era, puedes elegir el bloque concreto de la sala. Las notas se clasifican solas (técnica, cabeza, molestias…), en Inicio sale tu nivel, y al guardar una sesión aparece una imagen resumen para compartir o guardar. En Progreso, «Compartir» crea la imagen de «Mi progreso».
 
-**Navegación:** Inicio · Sala · Progreso · ＋ · Objetivos · Eventos · Perfil.
+**Navegación:** Inicio · Sala · Progreso · ＋ · Objetivos · Ajustes · Perfil. La bienvenida vuelve a salir una vez al cambiar la app de sala, para elegir tu color habitual con los colores nuevos. En Ajustes están la copia de seguridad y «Borrar todo y empezar de cero».
 
-**Eventos:** bloques y vías recién montados por sector (se actualizan solos cada día), eventos apuntados a mano (p. ej. competiciones o promociones vistas en Instagram) y enlace al Instagram de Sputnik. La web de Sputnik no publica una agenda con fechas, así que no hay eventos automáticos.
+**Novedades** (desde Inicio): bloques y vías recién montados por sector (se actualizan solos cada día), tus planes apuntados a mano (p. ej. competiciones o promociones vistas en Instagram) y enlace al Instagram de Sputnik. La web de Sputnik no publica una agenda con fechas, así que no hay eventos automáticos.
 
 **Objetivos:** retos del mes que se renuevan solos, siguientes objetivos con barra de progreso y colección de medallas. Logros sin final: constancia, conseguidos, a la primera, racha, colores, «Domina tu color», color completo… al completar un nivel se crea el siguiente automáticamente y la app avisa con «¡Nuevo logro!».
 
