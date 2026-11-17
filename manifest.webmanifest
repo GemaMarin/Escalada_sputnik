@@ -1,7 +1,7 @@
 {
   "name": "Mi Escalada",
   "short_name": "Mi Escalada",
-  "description": "Registra tus sesiones de escalada: bloques, vías, fotos, progreso y carga corporal.",
+  "description": "Registra tus sesiones de escalada en Sputnik Legazpi: bloques, vías, fotos, progreso y carga corporal.",
   "lang": "es",
   "start_url": "./#/inicio",
   "scope": "./",

@@ -1,16 +1,16 @@
-// Genera data/sharma.json con los bloques y vías actuales de la sala, el plano de
-// cada sector y la zona de cada bloque/vía en su foto del muro.
-// Lo ejecuta GitHub Actions al publicar (y cada día). Uso: node scripts/update-sharma.mjs
+// Genera data/gym.json con los bloques y vías actuales de Sputnik Legazpi, el plano de
+// cada sector y la zona de cada bloque/vía en su foto del muro (widget público de Vertical-Life).
+// Lo ejecuta GitHub Actions al publicar (y cada día). Uso: node scripts/update-gym.mjs
 // Reutiliza lo ya publicado para no volver a pedir fichas que no han cambiado.
+// Sputnik no publica una agenda de eventos con fechas en su web: data/events.json se deja vacío
+// y los eventos se apuntan a mano desde la app.
 import { writeFile } from 'node:fs/promises';
 
 const BASE = 'https://gyms.vertical-life.info';
-const GYM = 'sharma-climbing-madrid';
-const OUT = new URL('../data/sharma.json', import.meta.url);
+const GYM = 'sputnik-legazpi';
+const OUT = new URL('../data/gym.json', import.meta.url);
 const OUT_EVENTS = new URL('../data/events.json', import.meta.url);
-const EVENTS_API = 'https://sharmaclimbing.com/wp-json/tribe/events/v1/events';
-const MADRID_CAT = 174; // categoría «Sharma Climbing Madrid» en la web de la sala
-const PREV = process.env.PREV_URL || 'https://gemamarin.github.io/Escalada_sputnik/data/sharma.json';
+const PREV = process.env.PREV_URL || 'https://gemamarin.github.io/Escalada_sputnik/data/gym.json';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function get(url, fragment = false, tries = 3) {
@@ -65,22 +65,8 @@ function topo(html, cls) {
   } catch { return null; }
 }
 
-const strip = (h) => decode(String(h || '').replace(/<[^>]+>/g, ' ').replace(/&#8217;/g, '’').replace(/&#8211;/g, '–').replace(/&nbsp;/g, ' ')).replace(/\s+/g, ' ').trim();
-
-// Eventos publicados en la web de la sala (pasados recientes y próximos).
 async function updateEvents() {
-  const from = new Date(Date.now() - 150 * 86400000).toISOString().slice(0, 10);
-  const to = new Date(Date.now() + 400 * 86400000).toISOString().slice(0, 10);
-  const url = `${EVENTS_API}?per_page=50&categories=${MADRID_CAT}&start_date=${from}&end_date=${to}`;
-  const data = JSON.parse(await get(url));
-  const events = (data.events || []).map((e) => ({
-    id: String(e.id), title: strip(e.title), start: e.start_date, end: e.end_date, allDay: !!e.all_day,
-    url: e.url, image: e.image?.sizes?.medium?.url || e.image?.url || null,
-    summary: strip(e.excerpt || e.description).slice(0, 260),
-    cats: (e.categories || []).map((c) => c.name).filter((n) => !/^Sharma Climbing/.test(n)),
-  }));
-  await writeFile(OUT_EVENTS, JSON.stringify({ fetchedAt: Date.now(), source: 'sharmaclimbing.com', events }));
-  console.log(`OK: ${events.length} eventos`);
+  await writeFile(OUT_EVENTS, JSON.stringify({ fetchedAt: Date.now(), source: 'sputnikclimbing.com', events: [] }));
 }
 
 const main = async () => {

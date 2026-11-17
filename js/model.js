@@ -1,6 +1,8 @@
 // Modelo de dominio: grados, etiquetas de estilo y su relación con el cuerpo.
 
-import { SHARMA_CIRCUITS } from './sharma.js';
+import { GYM, GYM_CIRCUITS, SHARMA } from './gym.js';
+
+const GYM_NAME = GYM.name;
 
 // Grados franceses de vía, tal y como los publica la sala.
 export const ROUTE_GRADES = ['4a', '4b', '4c', '5a', '5a+', '5b', '5b+', '5c', '5c+', '6a', '6a+', '6b', '6b+',
@@ -8,8 +10,8 @@ export const ROUTE_GRADES = ['4a', '4b', '4c', '5a', '5a+', '5b', '5b+', '5c', '
 const OLD_ROUTE_GRADES = ['4', '4+', '5a', '5a+', '5b', '5b+', '5c', '5c+', '6a', '6a+', '6b', '6b+',
   '6c', '6c+', '7a', '7a+', '7b', '7b+', '7c', '7c+', '8a', '8a+', '8b', '8b+', '8c'];
 
-// Circuitos de bloque por defecto: los de Sharma Climbing Madrid (editables en Ajustes).
-export const DEFAULT_BOULDER_SCALE = SHARMA_CIRCUITS;
+// Circuitos de bloque por defecto: los de Sputnik Legazpi (editables en Ajustes).
+export const DEFAULT_BOULDER_SCALE = GYM_CIRCUITS;
 const OLD_DEFAULT_NAMES = ['Verde', 'Amarillo', 'Naranja', 'Azul', 'Rojo', 'Rosa', 'Morado', 'Negro', 'Blanco'];
 const OLD_NAME_MAP = { Naranja: 'Amarillo', Rosa: 'Rojo' };
 
@@ -18,12 +20,12 @@ export function migrate(settings, sessions) {
   if ((settings.dataVersion || 1) >= 2) return { settings, sessions, changed: false };
   const oldScale = settings.boulderScale;
   const wasOldDefault = !oldScale || (oldScale.length === OLD_DEFAULT_NAMES.length && oldScale.every((g, i) => g.name === OLD_DEFAULT_NAMES[i]));
-  const newScale = wasOldDefault ? SHARMA_CIRCUITS : oldScale;
+  const newScale = wasOldDefault ? GYM_CIRCUITS : oldScale;
   const remapBoulder = (i) => {
     if (!wasOldDefault) return i;
     const name = OLD_DEFAULT_NAMES[i];
     const target = OLD_NAME_MAP[name] || name;
-    const j = SHARMA_CIRCUITS.findIndex((g) => g.name === target);
+    const j = GYM_CIRCUITS.findIndex((g) => g.name === target);
     return j >= 0 ? j : i;
   };
   const remapRoute = (i) => {
@@ -36,7 +38,46 @@ export function migrate(settings, sessions) {
     ...s,
     climbs: (s.climbs || []).map((c) => ({ ...c, grade: c.discipline === 'route' ? remapRoute(c.grade) : remapBoulder(c.grade) })),
   }));
-  return { settings: { ...settings, boulderScale: newScale, scalePreset: wasOldDefault ? 'sharma' : settings.scalePreset, dataVersion: 2 }, sessions: out, changed: true };
+  return { settings: { ...settings, boulderScale: newScale, scalePreset: wasOldDefault ? 'gym' : settings.scalePreset, dataVersion: 2 }, sessions: out, changed: true };
+}
+
+// Paso de Sharma Climbing Madrid (base original de la app) a Sputnik Legazpi.
+// Solo actúa si se usaban los circuitos del Sharma sin cambios. Un mismo nombre no es la misma
+// dificultad en las dos salas, así que las sesiones antiguas pasan a «otro rocódromo: Sharma Climbing
+// Madrid» con sus propios colores, y cada color equivale por posición a uno de Sputnik.
+export function isSharmaScale(scale) {
+  const names = SHARMA.circuits.map((g) => g.name);
+  return Array.isArray(scale) && scale.length === names.length && scale.every((g, i) => g?.name === names[i]);
+}
+export function migrateSharmaToGym(settings, sessions) {
+  if (!isSharmaScale(settings.boulderScale)) return { settings, sessions, changed: false };
+  const oldReg = SHARMA.circuits.map((g, i) => ({ ...g, i })).filter((g) => !g.joker);
+  const newReg = GYM_CIRCUITS.map((g, i) => ({ ...g, i })).filter((g) => !g.joker);
+  const byPos = (k) => newReg[Math.round((k * (newReg.length - 1)) / Math.max(1, oldReg.length - 1))].i;
+  // Índice del Sharma → índice equivalente en Sputnik (los Joker, como el color anterior).
+  const map = []; let last = newReg[0].i;
+  SHARMA.circuits.forEach((g, i) => { if (!g.joker) last = byPos(oldReg.findIndex((r) => r.i === i)); map[i] = last; });
+  const fix = (g) => (Number.isInteger(g) && map[g] != null ? map[g] : g);
+  const boulder = (c) => c.discipline !== 'route' && c.discipline !== 'invented';
+  const out = sessions.map((s) => {
+    if (s.where === 'other') return { ...s, climbs: (s.climbs || []).map((c) => (boulder(c) ? { ...c, grade: fix(c.grade) } : c)) };
+    return {
+      // El registro de «otro rocódromo» es de sesiones libres: las clases lo indican en origKind.
+      ...s, where: 'other', gym: SHARMA.name, gymName: s.gymName != null ? SHARMA.name : s.gymName,
+      kind: 'free', ...(s.kind && s.kind !== 'free' ? { origKind: s.kind } : {}),
+      climbs: (s.climbs || []).map((c) => {
+        if (!boulder(c)) return c;
+        const old = SHARMA.circuits[c.grade];
+        return old ? { ...c, grade: fix(c.grade), gymColor: old.name, gymColorHex: old.color } : c;
+      }),
+    };
+  });
+  const otherGyms = Object.fromEntries(Object.entries(settings.otherGyms || {})
+    .map(([k, g]) => [k, { ...g, colors: (g.colors || []).map((c) => ({ ...c, eq: fix(Number(c.eq)) })) }]));
+  if (sessions.length) {
+    otherGyms[SHARMA.name.toLowerCase()] = { name: SHARMA.name, colors: SHARMA.circuits.map((g, i) => ({ name: g.name, color: g.color, eq: map[i], eqManual: true })) };
+  }
+  return { settings: { ...settings, boulderScale: GYM_CIRCUITS, scalePreset: 'gym', gym: GYM_NAME, otherGyms }, sessions: out, changed: true };
 }
 
 export function boulderIndexByName(settings, name) {
