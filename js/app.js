@@ -943,7 +943,8 @@ function viewEditor(editId) {
   if (!d.discs.includes(state.ui.logDisc)) state.ui.logDisc = d.discs[0];
   const photos = [...sessionPhotos(d.id).filter((p) => !d.removedPhotos.includes(p.id) && !p.climbId), ...d.newPhotos.filter((p) => !p.climbId)];
   const dateLabel = I.parseDate(d.date).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
-  const friends = [...new Set(state.sessions.flatMap((x) => x.with || []))].filter((f) => !d.with.includes(f)).slice(0, 8);
+  // Solo personas que tú has apuntado en sesiones reales (nunca las de los datos de ejemplo).
+  const friends = [...new Set(state.sessions.filter((x) => !x.demo).flatMap((x) => x.with || []))].filter((f) => !d.with.includes(f)).slice(0, 8);
   const topics = N.topicsOf(d.notes);
   return `<div class="topline"><button class="back" data-action="cancel-draft">${icon('back')} ${d.isNew ? 'Descartar' : 'Cancelar'}</button>
 </div>
