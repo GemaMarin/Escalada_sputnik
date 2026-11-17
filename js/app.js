@@ -473,24 +473,23 @@ function noteInsights() {
 }
 
 function planCardHTML(plan) {
-  const typeBtns = (date) => `<div class="plan-btns">
-      <button class="btn primary" data-action="plan-start" data-date="${date}" data-type="boulder">${icon('boulder')} Bloque</button>
-      <button class="btn primary alt" data-action="plan-start" data-date="${date}" data-type="route">${icon('rope')} Vías</button></div>`;
+  const typeBtns = (date) => `<div class="plan-btns one">
+      <button class="btn primary" data-action="plan-start" data-date="${date}" data-type="boulder">${icon('plus')} Registrar sesión</button></div>`;
   if (plan.pending) {
     return `<div class="card plan warn-card">
-      <div class="plan-head"><span class="plan-ic">${icon('calendar')}</span><div><b>¿Qué tal la sesión ${esc(P.sessionOf(plan.pending))}?</b><small>Aún no la has registrado. ¿Qué tocó?</small></div></div>
+      <div class="plan-head"><span class="plan-ic">${icon('calendar')}</span><div><b>¿Qué tal la sesión ${esc(P.sessionOf(plan.pending))}?</b><small>Aún no la has registrado.</small></div></div>
       ${typeBtns(plan.pending)}
       <button class="link muted-link" data-action="plan-skip" data-date="${plan.pending}">No fui a escalar</button></div>`;
   }
   if (plan.today?.flexible) {
     return `<div class="card plan">
-      <div class="plan-head"><span class="plan-ic">${icon('clock')}</span><div><b>¿Has ido a escalar hoy?</b><small>Registra tu sesión: ¿bloque o vías?</small></div></div>
+      <div class="plan-head"><span class="plan-ic">${icon('clock')}</span><div><b>¿Has ido a escalar hoy?</b><small>Registra tu sesión: bloques, vías o las dos.</small></div></div>
       ${typeBtns(plan.today.date)}
       <button class="link muted-link" data-action="plan-skip" data-date="${plan.today.date}">Hoy no he ido</button></div>`;
   }
   if (plan.today) {
     return `<div class="card plan">
-      <div class="plan-head"><span class="plan-ic">${icon('clock')}</span><div><b>Hoy toca escalar${plan.today.after ? '' : ` a las ${esc(plan.time)}`}</b><small>${plan.today.after ? 'Apunta los bloques que has hecho.' : '¿Bloque o vías? Ábrelo al llegar.'}</small></div></div>
+      <div class="plan-head"><span class="plan-ic">${icon('clock')}</span><div><b>Hoy toca escalar${plan.today.after ? '' : ` a las ${esc(plan.time)}`}</b><small>${plan.today.after ? 'Apunta lo que has escalado.' : 'Ábrelo al llegar y ve apuntando.'}</small></div></div>
       ${typeBtns(plan.today.date)}</div>`;
   }
   if (plan.next) {
@@ -936,10 +935,13 @@ function viewEditor(editId) {
   if (!editId && !state.draft?.isNew) { state.draft = state.stash || newDraft(); state.stash = null; saveDraftSoon(); }
   const d = state.draft;
   d.with ||= [];
-  const disc = state.ui.logDisc;
+  // Qué ha escalado: bloques, vías o las dos cosas (se muestran ambos contadores).
+  if (!Array.isArray(d.discs) || !d.discs.length) d.discs = d.type === 'mixed' ? ['boulder', 'route'] : [d.type === 'route' ? 'route' : 'boulder'];
+  d.climbs.forEach((c) => { const k = c.discipline === 'invented' ? c.invKind : c.discipline; if (k && !d.discs.includes(k)) d.discs.push(k); });
+  d.discs.sort((a) => (a === 'boulder' ? -1 : 1));
+  if (!d.discs.includes(state.ui.logDisc)) state.ui.logDisc = d.discs[0];
   const photos = [...sessionPhotos(d.id).filter((p) => !d.removedPhotos.includes(p.id) && !p.climbId), ...d.newPhotos.filter((p) => !p.climbId)];
   const dateLabel = I.parseDate(d.date).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
-  const specific = d.climbs.filter((c) => c.vlId && c.discipline === disc).length;
   const friends = [...new Set(state.sessions.flatMap((x) => x.with || []))].filter((f) => !d.with.includes(f)).slice(0, 8);
   const topics = N.topicsOf(d.notes);
   return `<div class="topline"><button class="back" data-action="cancel-draft">${icon('back')} ${d.isNew ? 'Descartar' : 'Cancelar'}</button>
@@ -966,17 +968,13 @@ function viewEditor(editId) {
         ${otherGyms().length ? `<div class="chips">${otherGyms().map((g) => `<button class="chip ${d.gymName === g ? 'on' : ''}" data-action="pick-gym" data-v="${esc(g)}">📍 ${esc(g)}</button>`).join('')}</div>` : ''}
         <small class="muted">Para los bloques, elige el color de ${esc(S.GYM.name)} que más se parezca en dificultad.</small>` : ''}</div>` : ''}
 
-    ${seg('log-disc', disc, { boulder: `${icon('boulder')} Bloques`, route: `${icon('rope')} Vías` })}
-    ${countsCard(disc)}
-
-    ${d.kind === 'free' && d.where === 'other' ? '' : `<details class="card picker-box" ${state.ui.logOpen || specific ? 'open' : ''}>
-      <summary data-action="log-open">${icon('wall')}<span><b>Elegir ${disc === 'route' ? 'vías concretas' : 'bloques concretos'}</b><small>${specific ? `${plural(specific, 'elegido', 'elegidos')} de la sala` : 'Opcional · si te acuerdas de cuál era'}</small></span>${icon('chevron', 'chev')}</summary>
-      ${state.ui.logOpen || specific ? logPicker(disc) : ''}
-    </details>`}
+    <div class="card disc-card"><b>¿Qué has escalado?</b> <small class="muted">puedes elegir las dos</small>
+      <div class="disc-pick">${[['boulder', `${icon('boulder')} Bloques`], ['route', `${icon('rope')} Vías`]].map(([k, l]) => `<button class="disc-btn ${d.discs.includes(k) ? 'on' : ''}" data-action="toggle-disc" data-v="${k}" aria-pressed="${d.discs.includes(k)}">${l}<i>${icon('check')}</i></button>`).join('')}</div></div>
+    ${d.discs.map((disc) => discSection(d, disc)).join('')}
 
     <div class="card form">
       <div class="field"><span>¿Cómo te has sentido?</span><div class="moods">${M.MOODS.map((m, i) => `<button class="mood ${d.mood === i ? 'on' : ''}" data-action="set-mood" data-v="${i}">${m}</button>`).join('')}</div></div>
-      <div class="field"><span>¿Cuánto ha durado?</span><div class="chips dur">${[45, 60, 90, 120, 150, 180].map((m) => `<button class="chip ${Number(d.duration) === m ? 'on' : ''}" data-action="set-duration" data-v="${m}">${fmtMin(m)}</button>`).join('')}</div></div>
+      ${durationField(d)}
       <div class="field"><span>¿Cómo ha sido?</span><div class="seg">${Object.entries(EFFORT).map(([v, l]) => `<button class="${Number(d.rpe) === Number(v) ? 'on' : ''}" data-action="set-effort" data-v="${v}">${l}</button>`).join('')}</div></div>
     </div>
 
@@ -990,6 +988,32 @@ function viewEditor(editId) {
       </div>
     </div>
     <div class="save-bar"><button class="btn primary block big" data-action="save-session">${icon('check')} ${d.isNew ? 'Guardar sesión' : 'Guardar cambios'}</button></div>`;
+}
+
+// Duración: opciones rápidas, «+3 h» y tiempo a medida (horas y minutos).
+const DURATIONS = [45, 60, 90, 120, 150, 180];
+function durationField(d) {
+  const dur = Number(d.duration) || 0;
+  const custom = d.durCustom || (dur && !DURATIONS.includes(dur) && dur !== 210);
+  return `<div class="field"><span>¿Cuánto ha durado?</span><div class="chips dur">${DURATIONS.map((m) => `<button class="chip ${!custom && dur === m ? 'on' : ''}" data-action="set-duration" data-v="${m}">${fmtMin(m)}</button>`).join('')}
+      <button class="chip ${!custom && dur === 210 ? 'on' : ''}" data-action="set-duration" data-v="210">+3 h</button>
+      <button class="chip ${custom ? 'on' : ''}" data-action="dur-custom">${icon('clock')} Otro</button></div>
+    ${custom ? `<div class="dur-custom"><label><input type="number" inputmode="numeric" min="0" max="12" value="${Math.floor(dur / 60)}" data-dur="h" aria-label="Horas"> h</label>
+      <label><select data-dur="m" aria-label="Minutos">${[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map((m) => `<option value="${m}" ${dur % 60 === m ? 'selected' : ''}>${String(m).padStart(2, '0')}</option>`).join('')}</select> min</label></div>` : ''}</div>`;
+}
+
+// Contadores y selector de la sala para una disciplina (bloques o vías).
+function discSection(d, disc) {
+  const specific = d.climbs.filter((c) => c.vlId && c.discipline === disc).length;
+  const open = state.ui.logDisc === disc && (state.ui.logOpen || specific);
+  return `<section class="disc-sec" data-disc="${disc}">
+    ${d.discs.length > 1 ? `<h2 class="section-title">${disc === 'route' ? `${icon('rope')} Vías` : `${icon('boulder')} Bloques`}</h2>` : ''}
+    ${countsCard(disc)}
+    ${d.kind === 'free' && d.where === 'other' ? '' : `<details class="card picker-box" ${open ? 'open' : ''}>
+      <summary data-action="log-open" data-disc="${disc}">${icon('wall')}<span><b>Elegir ${disc === 'route' ? 'vías concretas' : 'bloques concretos'}</b><small>${specific ? `${plural(specific, 'elegido', 'elegidos')} de la sala` : 'Opcional · si te acuerdas de cuál era'}</small></span>${icon('chevron', 'chev')}</summary>
+      ${open ? logPicker(disc) : ''}
+    </details>`}
+  </section>`;
 }
 
 // Contadores rápidos por color (bloque) o grado (vía): conseguidos e intentados.
@@ -1026,6 +1050,7 @@ function countsCard(disc) {
     ${addRoute}
     ${(() => { const inv = d.climbs.filter((c) => c.discipline === 'invented' && c.invKind === disc); const n1 = inv.filter(M.isSent).length; const n2 = inv.length - n1;
       const c2 = (sent, n) => `<div class="ctr ${sent ? 'send' : 'proj'} ${n ? 'has' : ''}"><button data-action="cnt" data-g="inv" data-r="${sent ? 'send' : 'project'}" data-d="-1" aria-label="Menos" ${n ? '' : 'disabled'}>${icon('minus')}</button><b>${n}</b><button data-action="cnt" data-g="inv" data-r="${sent ? 'send' : 'project'}" data-d="1" aria-label="Más">${icon('plus')}</button></div>`;
+      if (disc === 'boulder' && !inv.length) return '';
       return `<div class="crow inv-row ${inv.length ? 'active' : ''}"><span class="inv-label"><b>✏️ Inventado</b><small>libre del profe</small></span>${c2(true, n1)}${c2(false, n2)}</div>`; })()}
     ${mine.length ? `<p class="counts-sum">${hardest != null ? `Lo más difícil conseguido: <b>${esc(label(hardest))}</b>` : ''}${hardestTry != null && (hardest == null || hardestTry > hardest) ? `${hardest != null ? ' · ' : ''}Has llegado a intentar <b>${esc(label(hardestTry))}</b>` : ''}</p>` : ''}
   </div>`;
@@ -1051,7 +1076,7 @@ function otherCountsCard(d) {
     <div class="counts-head"><b>¿Qué has hecho?</b><span class="ch-k"><i class="k-send">${icon('check')}</i>Conseguidos</span><span class="ch-k"><i class="k-proj">${icon('refresh')}</i>Intentados</span></div>
     ${circ.colors.map((g, k) => `<div class="crow ${cnt(g.name, true) + cnt(g.name, false) ? 'active' : ''}">
       <span class="eqwrap"><span class="grade sm" style="${C.gradeStyle(g.color)}">${esc(g.name)}</span><small>≈ ${esc(M.gradeLabel({ discipline: 'boulder', grade: g.eq }, set()))}</small></span>${ctr(k, true)}${ctr(k, false)}</div>`).join('')}
-    <div class="crow inv-row ${inv.length ? 'active' : ''}"><span class="inv-label"><b>✏️ Inventado</b><small>libre del profe</small></span>${c2(true, inv.filter(M.isSent).length)}${c2(false, inv.filter((c) => !M.isSent(c)).length)}</div>
+    ${inv.length ? `<div class="crow inv-row active"><span class="inv-label"><b>✏️ Inventado</b><small>libre del profe</small></span>${c2(true, inv.filter(M.isSent).length)}${c2(false, inv.filter((c) => !M.isSent(c)).length)}</div>` : ''}
     <button class="link circ-edit" data-action="circ-open">${icon('edit')} Cambiar colores de ${esc(circ.name)}</button>
   </div>`;
 }
@@ -1562,7 +1587,7 @@ async function saveSession() {
   session.gym = session.where === 'other' ? session.gymName.trim().replace(/\s+/g, ' ') : S.GYM.name;
   delete session.gymName;
   const discs = new Set(session.climbs.map((c) => (c.discipline === 'invented' ? c.invKind : c.discipline)));
-  session.type = discs.size > 1 ? 'mixed' : discs.has('route') ? 'route' : discs.has('boulder') ? 'boulder' : (state.ui.logDisc || 'boulder');
+  session.type = discs.size > 1 ? 'mixed' : discs.has('route') ? 'route' : discs.has('boulder') ? 'boulder' : (session.discs?.length > 1 ? 'mixed' : session.discs?.[0] || 'boulder');
   if (!session.rpe) session.rpe = 6;
   session.topics = N.topicsOf(session.notes);
   if (session.kind !== 'free') { session.with = []; session.solo = false; }
@@ -1733,7 +1758,7 @@ const actions = {
     let d = state.draft?.isNew ? state.draft : null;
     if (d && d.climbs.length && d.date !== date) { toast('Ya tienes una sesión abierta: termínala primero'); go('#/nueva'); return; }
     d = ensureDraft();
-    d.date = date; d.type = type; state.ui.logDisc = type; d.kind = P.isPlannedDay(date, set()) ? 'class' : 'free';
+    d.date = date; d.type = type; d.discs = [type]; state.ui.logDisc = type; d.kind = P.isPlannedDay(date, set()) ? 'class' : 'free';
     const plan = P.planState(set(), realSessions(), null);
     saveDraftSoon(); haptic();
     go('#/nueva');
@@ -1894,13 +1919,13 @@ const actions = {
   'with-add-input'() { const inp = $('[data-with]'); addWith(inp?.value); },
   'with-del'(el) { state.draft.with = state.draft.with.filter((f) => f !== el.dataset.v); saveDraftSoon(); rerender(); },
   cnt(el) {
-    const d = state.draft; const r = el.dataset.r; const disc = state.ui.logDisc;
+    const d = state.draft; const r = el.dataset.r; const disc = el.closest('[data-disc]')?.dataset.disc || state.ui.logDisc;
     const sent = r === 'send';
     if (el.dataset.g === 'inv') {
       if (Number(el.dataset.d) > 0) d.climbs.push({ id: uid(), discipline: 'invented', invKind: disc, grade: 0, result: r, attempts: sent ? 2 : 3, styles: [], holds: [], moves: [], name: '', zone: '', notes: '' });
       else { const idx = d.climbs.map((c, k) => [c, k]).reverse().find(([c]) => c.discipline === 'invented' && c.invKind === disc && M.isSent(c) === sent)?.[1]; if (idx != null) d.climbs.splice(idx, 1); }
       haptic(6); saveDraftSoon(); rerender();
-      $(`.ctr button[data-g="inv"][data-r="${r}"]`)?.parentElement.querySelector('b')?.classList.add('bump');
+      $(`[data-disc="${disc}"] .ctr button[data-g="inv"][data-r="${r}"]`)?.parentElement.querySelector('b')?.classList.add('bump');
       return;
     }
     if (el.dataset.gc != null) {
@@ -1921,10 +1946,26 @@ const actions = {
       d.climbs.splice(idx, 1); haptic(4);
     }
     saveDraftSoon(); rerender();
-    $(`.ctr button[data-g="${g}"][data-r="${r}"]`)?.parentElement.querySelector('b')?.classList.add('bump');
+    $(`[data-disc="${disc}"] .ctr button[data-g="${g}"][data-r="${r}"]`)?.parentElement.querySelector('b')?.classList.add('bump');
   },
   'route-row'(el) { state.ui.routeRows = [...new Set([...state.ui.routeRows, Number(el.dataset.v)])]; rerender(); },
-  'log-open'(el, e) { e.preventDefault(); state.ui.logOpen = !el.closest('details').open; rerender(); },
+  'log-open'(el, e) {
+    e.preventDefault();
+    const disc = el.dataset.disc || state.ui.logDisc;
+    if (disc !== state.ui.logDisc) Object.assign(state.ui, { logDisc: disc, logCircuit: null, logSector: 'all', logOpen: true });
+    else state.ui.logOpen = !el.closest('details').open;
+    rerender();
+  },
+  'toggle-disc'(el) {
+    const d = state.draft; const k = el.dataset.v;
+    if (d.discs.includes(k)) {
+      if (d.discs.length === 1) { toast('Elige al menos bloques o vías'); return; }
+      if (d.climbs.some((c) => (c.discipline === 'invented' ? c.invKind : c.discipline) === k)) { toast(`Quita antes ${k === 'route' ? 'las vías apuntadas' : 'los bloques apuntados'}`); return; }
+      d.discs = d.discs.filter((x) => x !== k);
+    } else d.discs = [...d.discs, k];
+    d.type = d.discs.length > 1 ? 'mixed' : d.discs[0];
+    haptic(); saveDraftSoon(); rerender();
+  },
   async 'avatar-del'() {
     await db.del('settings', 'avatar');
     if (state.avatarURL) URL.revokeObjectURL(state.avatarURL);
@@ -1951,7 +1992,8 @@ const actions = {
   },
   'set-mood'(el) { const v = Number(el.dataset.v); state.draft.mood = state.draft.mood === v ? null : v; saveDraftSoon(); rerender(); },
   'set-effort'(el) { state.draft.rpe = Number(el.dataset.v); saveDraftSoon(); rerender(); },
-  'set-duration'(el) { state.draft.duration = Number(el.dataset.v); saveDraftSoon(); rerender(); },
+  'set-duration'(el) { state.draft.duration = Number(el.dataset.v); state.draft.durCustom = false; saveDraftSoon(); rerender(); },
+  'dur-custom'() { state.draft.durCustom = true; saveDraftSoon(); rerender(); },
   'log-disc'(el) { state.ui.logDisc = el.dataset.v; state.ui.logCircuit = null; state.ui.logSector = 'all'; rerender(); },
   'log-circuit'(el) { state.ui.logCircuit = el.dataset.v; state.ui.logSector = 'all'; rerender(); },
   'log-sector'(el) { state.ui.logSector = el.dataset.v; rerender(); },
@@ -2082,6 +2124,10 @@ document.addEventListener('keydown', (e) => {
 
 function onInput(e) {
   const el = e.target;
+  if (el.dataset.dur && state.draft) {
+    const h = Math.min(12, Math.max(0, Number($('[data-dur="h"]')?.value) || 0)); const m = Number($('[data-dur="m"]')?.value) || 0;
+    state.draft.duration = h * 60 + m || null; saveDraftSoon(400); return;
+  }
   if (el.dataset.field && state.draft && el.type !== 'date') {
     state.draft[el.dataset.field] = el.value;
     if (el.dataset.field === 'notes') {

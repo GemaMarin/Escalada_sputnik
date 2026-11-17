@@ -1024,3 +1024,19 @@ button.cd:active { transform: scale(.9); }
 .medal b { font-size: 12.5px; line-height: 1.2; }
 .medal small { font-size: 11px; color: var(--muted); line-height: 1.25; }
 :root[data-theme="dark"] .medal { background: linear-gradient(180deg, #2b1d10, var(--surface)); border-color: #4a3216; }
+
+/* Registro: bloques y/o vías, duración a medida */
+.plan-btns.one { grid-template-columns: 1fr; }
+.disc-card .disc-pick { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+.disc-btn { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 14px 10px; border-radius: 14px; border: 1.5px solid var(--border); background: var(--surface-2); color: var(--muted); font: inherit; font-weight: 700; cursor: pointer; transition: all .2s var(--ease); }
+.disc-btn .ic { width: 20px; height: 20px; }
+.disc-btn i { position: absolute; top: 6px; right: 6px; width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: #fff; opacity: 0; transform: scale(.6); transition: all .2s var(--ease); }
+.disc-btn i .ic { width: 12px; height: 12px; stroke-width: 3; }
+.disc-btn.on { border-color: var(--accent); color: var(--text); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); }
+.disc-btn.on i { opacity: 1; transform: none; }
+.disc-sec > .section-title { display: flex; align-items: center; gap: 8px; margin-top: 18px; }
+.disc-sec > .section-title .ic { width: 20px; height: 20px; color: var(--accent); }
+.disc-sec + .disc-sec { margin-top: 6px; }
+.dur-custom { display: flex; gap: 14px; align-items: center; margin-top: 10px; }
+.dur-custom label { display: flex; align-items: center; gap: 6px; font-weight: 600; color: var(--muted); }
+.dur-custom input, .dur-custom select { width: 72px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font: inherit; font-weight: 700; text-align: center; }
