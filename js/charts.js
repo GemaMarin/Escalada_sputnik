@@ -155,27 +155,65 @@ export function textOn(color) {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.45 ? '#111827' : '#fff';
 }
 
-// Barras semanales: altura = lo más difícil conseguido esa semana, con su color.
-export function weeklyBars(data, labelFor, colorFor, maxIndex) {
-  const W = 340, H = 170, L = 6, R = 6, T = 26, B = 24;
-  if (!data.some((d) => d.max != null)) return '<p class="muted small">Cuando registres sesiones verás aquí tu nivel de cada semana.</p>';
-  const bw = (W - L - R) / data.length;
-  const top = Math.max(maxIndex, ...data.map((d) => d.max ?? 0)) + 1;
-  let out = '';
+// Nivel por semana: una barra por semana hasta el nivel más difícil conseguido.
+// Eje Y con los nombres de los niveles (colores o grados), eje X con las semanas.
+// levels: índices de grado que van en el eje, de más fácil a más difícil.
+export function weeklyLevelChart(data, { labelFor, colorFor, levels }) {
+  if (!data.some((d) => d.max != null)) return '<p class="muted small wl-empty">Cuando registres sesiones verás aquí tu nivel de cada semana.</p>';
+  const pos = (g) => { let k = levels.indexOf(g); if (k < 0) k = levels.filter((x) => x < g).length - 1; return Math.max(0, k); };
+  const vals = data.filter((d) => d.max != null).map((d) => pos(d.max));
+  let lo = Math.max(0, Math.min(...vals) - 1); let hi = Math.min(levels.length - 1, Math.max(...vals) + 1);
+  while (hi - lo < 3 && (lo > 0 || hi < levels.length - 1)) { if (lo > 0) lo--; if (hi - lo < 3 && hi < levels.length - 1) hi++; }
+  const W = 340, H = 196, L = 62, R = 8, T = 10, B = 26;
+  const plotH = H - T - B; const span = hi - lo + 1;
+  const y = (k) => T + plotH - ((k - lo + 1) / span) * plotH;
+  const bw = (W - L - R) / data.length; const barW = Math.min(16, bw * 0.56);
+  const every = span > 8 ? 2 : 1;
+  let grid = ''; let bars = ''; let hits = ''; let xl = '';
+  for (let k = lo; k <= hi; k++) {
+    if ((k - lo) % every) continue;
+    const g = levels[k]; const yy = y(k);
+    grid += `<line class="grid wl-grid" x1="${L}" x2="${W - R}" y1="${yy}" y2="${yy}"/>
+      <circle cx="${L - 52}" cy="${yy}" r="4" fill="${colorFor(g)}" class="wl-dot"/>
+      <text x="${L - 44}" y="${yy + 3.5}" class="axis">${esc(labelFor(g))}</text>`;
+  }
+  const base = T + plotH;
+  const last = data.length - 1;
   data.forEach((d, i) => {
-    const x = L + i * bw + 3; const w = bw - 6;
-    if (d.max == null) {
-      out += `<rect x="${x}" y="${H - B - 4}" width="${w}" height="4" rx="2" fill="var(--surface-2)"/>`;
+    const cx = L + bw * i + bw / 2; const x = cx - barW / 2;
+    if (d.max != null) {
+      const top = y(pos(d.max)); const r = Math.min(4, barW / 2);
+      bars += `<path class="wl-bar" d="M${x},${base} V${top + r} Q${x},${top} ${x + r},${top} H${x + barW - r} Q${x + barW},${top} ${x + barW},${top + r} V${base} Z" fill="${colorFor(d.max)}"/>`;
     } else {
-      const h = Math.max(10, (H - T - B) * ((d.max + 1) / top));
-      const c = colorFor(d.max);
-      out += `<g><title>Semana del ${shortWeek(d.week)}: ${esc(labelFor(d.max))} · ${d.count} conseguidos</title>
-        <rect x="${x}" y="${H - B - h}" width="${w}" height="${h}" rx="6" fill="${c}" stroke="rgb(0 0 0 / .12)"/>
-        ${i === data.length - 1 || d.max >= Math.max(...data.map((z) => z.max ?? -1)) ? `<text x="${x + w / 2}" y="${H - B - h - 6}" text-anchor="middle" class="axis strong">${esc(labelFor(d.max))}</text>` : ''}</g>`;
+      bars += `<circle cx="${cx}" cy="${base - 3}" r="2" class="wl-none"/>`;
     }
-    if (i % 3 === (data.length - 1) % 3) out += `<text x="${x + w / 2}" y="${H - 6}" text-anchor="middle" class="axis">${shortWeek(d.week)}</text>`;
+    const tip = d.max != null ? `${esc(labelFor(d.max))}|${d.count} conseguido${d.count === 1 ? '' : 's'}|${colorFor(d.max)}` : 'Sin escalar||';
+    hits += `<rect class="wl-hit" x="${L + bw * i}" y="${T}" width="${bw}" height="${plotH + B}" data-tip="${tip}" data-wk="${i === last ? 'Esta semana' : `Semana del ${shortWeek(d.week)}`}" data-x="${cx}" data-y="${d.max != null ? y(pos(d.max)) : base}"/>`;
+    if (i === last) xl += `<text x="${cx}" y="${H - 8}" text-anchor="end" class="axis strong">Esta</text>`;
+    else if ((last - i) % 3 === 0) xl += `<text x="${cx}" y="${H - 8}" text-anchor="middle" class="axis">${shortWeek(d.week)}</text>`;
   });
-  return `<svg viewBox="0 0 ${W} ${H}" class="chart" role="img" aria-label="Nivel por semana">${out}</svg>`;
+  return `<div class="wl-plot"><svg viewBox="0 0 ${W} ${H}" class="chart wl-chart" role="img" aria-label="Nivel más difícil conseguido cada semana">
+    ${grid}<line class="wl-base" x1="${L}" x2="${W - R}" y1="${base}" y2="${base}"/>${bars}${xl}<rect class="wl-band" x="0" y="${T}" width="${bw}" height="${plotH}" rx="6"/>${hits}</svg>
+    <div class="wl-tip" role="status"></div></div>`;
+}
+
+// Tooltip de las gráficas (tocar o pasar el ratón por encima de una semana).
+let tipsBound = false;
+export function bindChartTips() {
+  if (tipsBound) return; tipsBound = true;
+  const hide = (plot) => { plot?.classList.remove('tip-on'); };
+  const show = (hit) => {
+    const plot = hit.closest('.wl-plot'); const svg = plot.querySelector('svg'); const tip = plot.querySelector('.wl-tip'); const band = svg.querySelector('.wl-band');
+    const [label, count, color] = hit.dataset.tip.split('|');
+    tip.innerHTML = `<small>${esc(hit.dataset.wk)}</small><b>${color ? `<i style="background:${color}"></i>` : ''}${esc(label)}</b>${count ? `<small>${esc(count)}</small>` : ''}`;
+    band.setAttribute('x', hit.getAttribute('x')); band.setAttribute('width', hit.getAttribute('width'));
+    const k = svg.clientWidth / svg.viewBox.baseVal.width;
+    const px = Number(hit.dataset.x) * k; const py = Number(hit.dataset.y) * k;
+    tip.style.left = `${Math.min(Math.max(px, 64), svg.clientWidth - 64)}px`; tip.style.top = `${py}px`;
+    plot.classList.add('tip-on');
+  };
+  document.addEventListener('pointermove', (e) => { const hit = e.target.closest?.('.wl-hit'); if (hit) show(hit); else document.querySelectorAll('.wl-plot.tip-on').forEach(hide); });
+  document.addEventListener('pointerdown', (e) => { const hit = e.target.closest?.('.wl-hit'); if (hit) show(hit); else document.querySelectorAll('.wl-plot.tip-on').forEach(hide); });
 }
 
 // Conseguidos e intentados por color/grado.

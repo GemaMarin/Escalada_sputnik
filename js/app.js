@@ -100,6 +100,7 @@ async function init() {
   document.addEventListener('change', onChange);
   window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); state.installEvt = e; if (route() === 'inicio') rerender(); });
   setupSheetGestures();
+  C.bindChartTips();
   render();
   document.body.classList.add('ready');
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
@@ -1379,12 +1380,31 @@ function progSummary() {
       ${kpi(monthSent, 'este mes')}
     </section>
     ${prog.length ? `<div class="card"><h3>Lo que hay ahora en la sala</h3><div class="rings">${prog.map((p) => `<div class="cring">${ringColor(p.done, p.total, p.color)}<span>${esc(p.name)}</span><small>${p.done}/${p.total}</small></div>`).join('')}</div></div>` : ''}
-    <div class="card"><h3>Tu nivel cada semana</h3>${C.weeklyBars(weeks, label, color, best?.grade ?? 0)}</div>
+    ${weeklyLevelCard(disc, weeks, label, color)}
     ${used.length ? `<div class="card"><h3>Por ${disc === 'route' ? 'grado' : 'color'}</h3>${C.colorBars(used)}</div>` : ''}
     <div class="card"><h3>Días que has escalado</h3><div class="scroll-x">${C.calendarHeatmap(realSessions())}</div></div>
     ${gymsCard()}
     ${topicsCard()}
     ${trying.length ? `<div class="card"><h3>${icon('refresh')} Estás intentando</h3><p class="muted small">Siguen montados en la sala: ¡la próxima vez saldrán!</p><div class="tile-grid">${trying.map((x) => itemTile(x, itemStatus(log.get(x.vlId)))).join('')}</div></div>` : ''}`;
+}
+
+// Tarjeta «Tu nivel cada semana»: resumen, selector Bloques/Vías y gráfica.
+function weeklyLevelCard(disc, weeks, label, color) {
+  const scale = M.boulderScale(set());
+  const levels = disc === 'route' ? M.ROUTE_GRADES.map((_, i) => i) : scale.map((g, i) => (g.joker ? null : i)).filter((i) => i != null);
+  const active = weeks.filter((w) => w.max != null);
+  const now = weeks[weeks.length - 1];
+  const best = active.length ? active.reduce((m, w) => (w.max > m.max ? w : m)) : null;
+  const chip = (g) => `<span class="grade xs" style="${C.gradeStyle(color(g))}">${esc(label(g))}</span>`;
+  return `<div class="card wl-card">
+    <div class="wl-head"><div><h3>Tu nivel cada semana</h3><small class="muted">Lo más difícil conseguido</small></div>
+      ${seg('prog-disc', disc, { boulder: 'Bloques', route: 'Vías' }).replace('class="seg"', 'class="seg mini"')}</div>
+    ${active.length ? `<div class="wl-stats">
+      <div><small>Esta semana</small>${now.max != null ? chip(now.max) : '<b class="muted">—</b>'}</div>
+      <div><small>Mejor semana</small>${chip(best.max)}</div>
+      <div><small>Activas</small><b>${active.length}<em>/${weeks.length} sem.</em></b></div></div>` : ''}
+    ${C.weeklyLevelChart(weeks, { labelFor: label, colorFor: color, levels })}
+  </div>`;
 }
 
 // Rocódromos donde has escalado (solo si hay más de uno).
