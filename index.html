@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Mi Escalada</title>
+  <meta name="description" content="Registra tus sesiones de escalada en el rocódromo: bloques, vías, fotos, progreso y carga corporal.">
+  <meta name="theme-color" content="#faf6f1" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#121010" media="(prefers-color-scheme: dark)">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Mi Escalada">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="appbar">
+    <a href="#/inicio" class="brand"><img src="icons/icon.svg" alt="" width="30" height="30"><span>Mi Escalada<b>Sharma Madrid</b></span></a>
+    <a href="#/ajustes" class="icon-btn ghost" aria-label="Ajustes" data-icon="settings"></a>
+  </header>
+  <main id="view" class="view"><div class="boot"><img src="icons/icon.svg" alt="" width="64" height="64"></div></main>
+  <nav class="tabbar" aria-label="Navegación principal">
+    <a href="#/inicio" data-tab="inicio"><span data-icon="home"></span>Inicio</a>
+    <a href="#/sala" data-tab="sala"><span data-icon="wall"></span>Sala</a>
+    <a href="#/progreso" data-tab="progreso"><span data-icon="chart"></span>Progreso</a>
+    <a href="#/nueva" data-tab="nueva" class="fab" aria-label="Registrar sesión"><span data-icon="plus"></span></a>
+    <a href="#/objetivos" data-tab="objetivos"><span data-icon="trophy"></span>Objetivos</a>
+    <a href="#/eventos" data-tab="eventos"><span data-icon="ticket"></span>Eventos</a>
+    <a href="#/perfil" data-tab="perfil"><span data-icon="user"></span>Perfil</a>
+  </nav>
+  <dialog id="sheet" class="sheet-dialog"></dialog>
+  <dialog id="lightbox" class="lightbox"></dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <noscript>Esta app necesita JavaScript activado.</noscript>
+  <script type="module" src="js/app.js?v=22"></script>
+</body>
+</html>
