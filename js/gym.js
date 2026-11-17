@@ -1,55 +1,79 @@
-// Integración con la sala: información de Sharma Climbing Madrid y bloques/vías
+// Integración con la sala: información de Sputnik Climbing Legazpi y bloques/vías
 // actuales publicados por la propia sala en Vertical-Life (widget público).
-// App no oficial: los datos se leen del mismo widget que enlaza la web del rocódromo.
+// App no oficial: los datos se leen del widget público de Vertical-Life de la sala.
 import { db } from './db.js';
 
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const safeColor = (c) => (/^#[0-9a-f]{3,8}$|^[a-z]+$/i.test(c || '') ? c : '#afff00');
 const safeURL = (u) => (/^https:\/\/[\w.-]+\/[\w./-]+$/.test(u || '') ? u : '');
+// Datos de la web oficial: https://sputnikclimbing.com/rocodromo-madrid/legazpi/
 export const GYM = {
-  id: 'sharma-climbing-madrid',
-  name: 'Sharma Climbing Madrid',
-  address: 'C/ Julián Camarillo 55, 28037 Madrid',
+  id: 'sputnik-legazpi',
+  name: 'Sputnik Legazpi',
+  fullName: 'Sputnik Climbing Legazpi',
+  address: 'C. del Hierro, 33, 28045 Madrid',
+  phone: '645 51 17 02',
+  email: 'legazpi@sputnikclimbing.com',
+  hours: [
+    { days: 'Lunes a viernes', time: '7 – 23 h' },
+    { days: 'Sábados', time: '9 – 22 h' },
+    { days: 'Domingos y festivos', time: '9 – 21 h' },
+  ],
   transport: [
-    { icon: 'metro', text: 'Metro L5 · Suanzes / Torre Arias' },
-    { icon: 'bus', text: 'Bus 105, 28 y 153' },
+    { icon: 'metro', text: 'Metro L3 y L6 · Legazpi' },
   ],
   facts: [
-    { value: '~100', label: 'bloques · del IV a +8A' },
-    { value: '120+', label: 'vías hasta 18 m' },
-    { value: '22', label: 'autoseguros · muro de 12 m' },
+    { value: '180+', label: 'bloques · 2500 m²' },
+    { value: '40', label: 'vías cortas (6 m) · IV a 7b' },
+    { value: '16', label: 'autoseguros' },
   ],
-  zones: ['Zona de bloque (sectores renovados cada semana)', 'Vías y vía de velocidad oficial', 'Autoseguros', 'Campus board y Kilter Board', 'Gimnasio, yoga y bar'],
+  zones: ['Bloque (bloques nuevos cada semana)', 'Vías con autoseguro (se renuevan en un mes)', 'Zona de entrenamiento: 2 Kilter Board, muro de densidad y suspensiones',
+    'Gimnasio (115 m²) y aula de estiramientos', 'Área de familias', 'La Cantina (restaurante)'],
   links: {
-    web: 'https://sharmaclimbing.com/espana/madrid-centro/',
-    hours: 'https://sharmaclimbing.com/espana/madrid-centro/horarios-y-tarifas/',
-    maps: 'https://www.google.com/maps/search/?api=1&query=Sharma+Climbing+Madrid+Julian+Camarillo+55',
-    vl: 'https://gyms.vertical-life.info/sharma-climbing-madrid/iframe',
+    web: 'https://sputnikclimbing.com/rocodromo-madrid/legazpi/',
+    hours: 'https://sputnikclimbing.com/rocodromo-madrid/legazpi/',
+    prices: 'https://sputnikclimbing.com/rocodromo-madrid/tarifas/',
+    capacity: 'https://sputnikclimbing.deporsite.net/aforo-legazpi',
+    maps: 'https://maps.app.goo.gl/Q8pkB8XqBfg5dYsr8',
+    instagram: 'https://www.instagram.com/sputnikclimbing/',
+    vl: 'https://gyms.vertical-life.info/sputnik-legazpi/iframe',
   },
 };
 
 // Circuitos de bloque de la sala, de más fácil a más difícil (orden de Vertical-Life).
-export const SHARMA_CIRCUITS = [
+export const GYM_CIRCUITS = [
   { name: 'Blanco', color: '#f4f4f5', approx: '' },
-  { name: 'Azul', color: '#2563eb', approx: '' },
   { name: 'Verde', color: '#16a34a', approx: '' },
-  { name: 'Joker 1', color: '#94a3b8', approx: 'circuito especial', joker: true },
   { name: 'Amarillo', color: '#facc15', approx: '' },
-  { name: 'Joker 2', color: '#64748b', approx: 'circuito especial', joker: true },
-  { name: 'Rojo', color: '#dc2626', approx: '' },
+  { name: 'Azul', color: '#2563eb', approx: '' },
   { name: 'Morado', color: '#7c3aed', approx: '' },
+  { name: 'Rojo', color: '#dc2626', approx: '' },
   { name: 'Negro', color: '#18181b', approx: '' },
+  { name: 'Comp', color: '#64748b', approx: 'bloques de competición', joker: true },
 ];
+
+// Circuitos de Sharma Climbing Madrid (base original de la app): solo para migrar datos antiguos.
+export const SHARMA = {
+  name: 'Sharma Climbing Madrid',
+  circuits: [
+    { name: 'Blanco', color: '#f4f4f5' }, { name: 'Azul', color: '#2563eb' }, { name: 'Verde', color: '#16a34a' },
+    { name: 'Joker 1', color: '#94a3b8', joker: true }, { name: 'Amarillo', color: '#facc15' },
+    { name: 'Joker 2', color: '#64748b', joker: true }, { name: 'Rojo', color: '#dc2626' },
+    { name: 'Morado', color: '#7c3aed' }, { name: 'Negro', color: '#18181b' },
+  ],
+};
 
 const BASE = 'https://gyms.vertical-life.info';
 const IFRAME = `${BASE}/${GYM.id}/iframe`;
 const MAX_AGE = 3 * 3600 * 1000;
 
-// Nombres de color de presa (Vertical-Life los da en inglés).
+// Nombres de color de presa (Vertical-Life los da en inglés o, en Sputnik, en español).
 const HOLD_NAMES = {
   white: 'Blanca', black: 'Negra', pink: 'Rosa', yellow: 'Amarilla', purple: 'Morada', blue: 'Azul',
   green: 'Verde', 'fluoro green': 'Verde flúor', red: 'Roja', orange: 'Naranja', turquoise: 'Turquesa',
   cyan: 'Turquesa', grey: 'Gris', gray: 'Gris', brown: 'Marrón', wood: 'Madera', beige: 'Beige',
+  blanco: 'Blanca', negro: 'Negra', amarillo: 'Amarilla', morado: 'Morada', rojo: 'Roja', menta: 'Menta',
+  naranja: 'Naranja', rosa: 'Rosa', gris: 'Gris', marrón: 'Marrón', turquesa: 'Turquesa',
 };
 export const holdName = (n) => HOLD_NAMES[(n || '').toLowerCase()] || n || '';
 
@@ -86,12 +110,12 @@ export function parseGym(html) {
 let memo = null;
 let extras = null;
 
-// Planos de sector y zonas de cada bloque: los prepara GitHub cada día (scripts/update-sharma.mjs)
+// Planos de sector y zonas de cada bloque: los prepara GitHub cada día (scripts/update-gym.mjs)
 // y se publican junto a la app, así cargan al instante.
 async function loadExtras() {
   if (extras) return extras;
   try {
-    const res = await fetch('data/sharma.json');
+    const res = await fetch('data/gym.json');
     if (!res.ok) throw new Error(res.status);
     extras = await res.json();
     db.put('settings', { key: 'gym-extras', value: extras });

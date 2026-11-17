@@ -2,17 +2,17 @@ import { db, uid, compressImage, blobToDataURL, dataURLToBlob } from './db.js';
 import * as M from './model.js';
 import * as I from './insights.js';
 import * as C from './charts.js';
-import * as S from './sharma.js';
+import * as S from './gym.js';
 import { icon } from './icons.js';
 import { makeDemo } from './demo.js';
 import * as P from './schedule.js';
 import * as N from './notes.js';
 import { sessionImage, progressImage } from './shareimg.js';
 
-const DATA_VERSION = 4;
+const DATA_VERSION = 5;
 const DEFAULT_SETTINGS = {
   key: 'settings', name: '', gym: S.GYM.name, weeklyGoal: 1, theme: 'light',
-  boulderScale: M.DEFAULT_BOULDER_SCALE, scalePreset: 'sharma', dataVersion: DATA_VERSION, liveGym: true,
+  boulderScale: M.DEFAULT_BOULDER_SCALE, scalePreset: 'gym', dataVersion: DATA_VERSION, liveGym: true,
   schedule: { days: [4], time: '19:00' }, extraDates: [], skipped: [],
 };
 
@@ -67,6 +67,14 @@ async function init() {
   if ((stored.dataVersion || 1) < 4 && settings) {
     if (!stored.theme) state.settings.theme = 'light';
   }
+  // v5: la app pasa de Sharma Climbing Madrid a Sputnik Legazpi (colores de bloque por nombre).
+  const toGym = M.migrateSharmaToGym(state.settings, draft?.value ? [...state.sessions, draft.value] : state.sessions);
+  if (toGym.changed) {
+    state.settings = toGym.settings;
+    if (draft?.value) draft.value = toGym.sessions.pop();
+    state.sessions = toGym.sessions;
+    if (state.sessions.length) await db.putMany('sessions', state.sessions);
+  }
   state.settings.dataVersion = DATA_VERSION;
   if (!state.settings.planSince) {
     const d = new Date(); d.setDate(d.getDate() - 7);
@@ -78,7 +86,7 @@ async function init() {
   const av = await db.get('settings', 'avatar');
   if (av?.blob) state.avatarURL = URL.createObjectURL(av.blob);
   if (draft?.value) state.draft = { newPhotos: [], removedPhotos: [], ...draft.value };
-  if (mig.changed && state.draft) await db.put('settings', { key: 'draft', value: state.draft });
+  if ((mig.changed || toGym.changed) && state.draft) await db.put('settings', { key: 'draft', value: state.draft });
   applyTheme();
   document.querySelectorAll('[data-icon]').forEach((el) => { el.innerHTML = icon(el.dataset.icon); });
   window.addEventListener('hashchange', () => render({ transition: true }));
@@ -285,14 +293,14 @@ function photoURL(id) {
 
 const sessionPhotos = (sid) => [...state.photos.values()].filter((p) => p.sessionId === sid).sort((a, b) => a.createdAt - b.createdAt);
 const TYPE_LABEL = { boulder: 'Bloque', route: 'Vías', mixed: 'Bloque y vías', training: 'Entreno' };
-const titleOf = (s) => `${s.kind === 'free' ? 'Sesión libre' : s.kind === 'class' ? 'Clase' : 'Sesión'} · ${(TYPE_LABEL[s.type] || 'escalada').toLowerCase()}`;
+const titleOf = (s) => `${s.origKind === 'class' ? 'Clase' : s.kind === 'free' ? 'Sesión libre' : s.kind === 'class' ? 'Clase' : 'Sesión'} · ${(TYPE_LABEL[s.type] || 'escalada').toLowerCase()}`;
 const gymOf = (s) => (s.where === 'other' && s.gym ? s.gym : S.GYM.name);
-// Colores (circuito) de otros rocódromos, de más fácil a más difícil, con su equivalente del Sharma.
+// Colores (circuito) de otros rocódromos, de más fácil a más difícil, con su equivalente en la sala.
 const gymKey = (name) => (name || '').trim().replace(/\s+/g, ' ').toLowerCase();
 const gymCircuit = (name) => set().otherGyms?.[gymKey(name)] || null;
-const sharmaRegular = () => M.boulderScale(set()).map((g, i) => ({ ...g, i })).filter((g) => !g.joker);
+const homeRegular = () => M.boulderScale(set()).map((g, i) => ({ ...g, i })).filter((g) => !g.joker);
 function defaultEq(pos, n) {
-  const reg = sharmaRegular();
+  const reg = homeRegular();
   return reg[Math.round((pos * (reg.length - 1)) / Math.max(1, n - 1))]?.i ?? 0;
 }
 const COMMON_COLORS = [['Blanco', '#f4f4f5'], ['Amarillo', '#facc15'], ['Naranja', '#f97316'], ['Verde', '#16a34a'], ['Azul', '#2563eb'], ['Rojo', '#dc2626'], ['Rosa', '#ec4899'], ['Morado', '#7c3aed'], ['Marrón', '#92400e'], ['Gris', '#6b7280'], ['Negro', '#18181b']];
@@ -499,12 +507,12 @@ function scheduleFields(sch, extras) {
 }
 
 // ---------------- Eventos y novedades ----------------
-const SHARMA_IG = 'https://www.instagram.com/sharmaclimbingmadrid/';
+const GYM_IG = S.GYM.links.instagram;
 const evDate = (iso) => new Date(iso.replace(' ', 'T'));
 const evDay = (iso) => evDate(iso).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
 
 function allEvents() {
-  const web = (state.events?.events || []).map((e) => ({ ...e, source: 'sharma', cats: [...new Set(e.cats || [])] }));
+  const web = (state.events?.events || []).map((e) => ({ ...e, source: 'gym', cats: [...new Set(e.cats || [])] }));
   const mine = (set().myEvents || []).map((e) => ({ id: e.id, title: e.title, start: `${e.date} 00:00:00`, end: `${e.end || e.date} 23:59:59`, url: e.url, summary: e.note, source: 'mine', cats: [] }));
   return [...web, ...mine].sort((a, b) => a.start.localeCompare(b.start));
 }
@@ -525,7 +533,7 @@ function evTile(e) {
   return `<a class="ev-tile ${img ? 'has-img' : ''}" ${e.url && /^https?:\/\//.test(e.url) ? `href="${esc(e.url)}" target="_blank" rel="noopener"` : 'href="#/eventos"'} style="--h:${hue}">
     ${img ? `<img src="${esc(img)}" alt="" loading="lazy" onerror="this.remove()">` : ''}
     <span class="ev-badge"><b>${d.getDate()}</b>${esc(d.toLocaleDateString('es-ES', { month: 'short' }).replace('.', ''))}</span>
-    <span class="ev-tile-txt"><small>${e.source === 'mine' ? 'Apuntado por ti' : esc((e.cats || [])[0] || 'Sharma')}</small><b>${esc(e.title)}</b></span>
+    <span class="ev-tile-txt"><small>${e.source === 'mine' ? 'Apuntado por ti' : esc((e.cats || [])[0] || 'Sputnik')}</small><b>${esc(e.title)}</b></span>
   </a>`;
 }
 
@@ -547,7 +555,7 @@ function eventCard(e, past = false) {
     ${img ? `<img class="ev-img" src="${esc(img)}" alt="" loading="lazy" onerror="this.remove()">` : ''}
     <div class="ev-date"><b>${d.getDate()}</b><span>${d.toLocaleDateString('es-ES', { month: 'short' }).replace('.', '')}</span></div>
     <div class="ev-main">
-      <div class="ev-tags">${e.source === 'mine' ? '<span class="ev-tag mine">Apuntado por ti</span>' : '<span class="ev-tag">Sharma</span>'}${(e.cats || []).map((c) => `<span class="ev-tag">${esc(c)}</span>`).join('')}</div>
+      <div class="ev-tags">${e.source === 'mine' ? '<span class="ev-tag mine">Apuntado por ti</span>' : '<span class="ev-tag">Sputnik</span>'}${(e.cats || []).map((c) => `<span class="ev-tag">${esc(c)}</span>`).join('')}</div>
       <b>${esc(e.title)}</b>
       ${multi ? `<small class="muted">Hasta el ${esc(evDay(e.end))}</small>` : ''}
       ${e.summary ? `<p>${esc(e.summary)}</p>` : ''}
@@ -572,8 +580,8 @@ function viewEvents() {
     </section>
     <h2 class="section-title">Próximos</h2>
     ${upcoming.length ? `<div class="list">${upcoming.map((e) => eventCard(e)).join('')}</div>`
-      : `<div class="card ev-none"><span>📭</span><div><b>No hay eventos publicados</b><small>¿Has visto algo en su Instagram (Black Friday, Día del Socio…)? Apúntalo arriba.</small></div></div>`}
-    <a class="card ig" href="${SHARMA_IG}" target="_blank" rel="noopener"><span class="ig-ic">📷</span><div><b>Instagram del Sharma Madrid</b><small>Promociones, avisos y novedades del día a día</small></div>${icon('external', 'muted')}</a>
+      : `<div class="card ev-none"><span>📭</span><div><b>No hay eventos publicados</b><small>Sputnik no publica una agenda en su web. ¿Has visto algo en su Instagram (competiciones, promociones, cursos…)? Apúntalo arriba.</small></div></div>`}
+    <a class="card ig" href="${GYM_IG}" target="_blank" rel="noopener"><span class="ig-ic">📷</span><div><b>Instagram de Sputnik Climbing</b><small>Promociones, avisos y novedades del día a día</small></div>${icon('external', 'muted')}</a>
     ${blocks.length ? `<div class="section-head"><h2 class="section-title">Bloques nuevos</h2><a href="#/sala" data-action="gym-filter-new">Ver en la sala</a></div>
       <div class="nb-carousel">${blocks.map((b) => {
         const byColor = {};
@@ -587,7 +595,7 @@ function viewEvents() {
         </button>`;
       }).join('')}</div>` : ''}
     ${past.length ? `<h2 class="section-title">Anteriores</h2><div class="ev-carousel">${past.map((e) => evTile(e)).join('')}</div>` : ''}
-    <p class="muted small center src">Se actualiza solo cada día${fetched ? ` · última vez ${ago(fetched)}` : ''}.</p>`;
+    <p class="muted small center src">Los bloques nuevos se actualizan solos cada día${fetched ? ` · última vez ${ago(fetched)}` : ''}.</p>`;
 }
 
 function myEventSheet() {
@@ -595,7 +603,7 @@ function myEventSheet() {
     <div class="grabber"></div>
     <div class="sheet-head"><button class="link" data-action="close-sheet" type="button">Cancelar</button><b>Apuntar evento</b><span></span></div>
     <div class="sheet-body">
-      <label class="field"><span>¿Qué es?</span><input data-myev="title" placeholder="p. ej. Black Friday en el Sharma" maxlength="80"></label>
+      <label class="field"><span>¿Qué es?</span><input data-myev="title" placeholder="p. ej. Black Friday en Sputnik" maxlength="80"></label>
       <div class="two"><label class="field"><span>Empieza</span><input type="date" data-myev="date" value="${I.today()}"></label>
       <label class="field"><span>Termina <small class="muted">opcional</small></span><input type="date" data-myev="end"></label></div>
       <label class="field"><span>Nota <small class="muted">opcional</small></span><textarea data-myev="note" rows="2" placeholder="p. ej. 20% en abonos y material"></textarea></label>
@@ -671,7 +679,7 @@ function viewProfile() {
     <section class="profile">
       <label class="prof-photo" aria-label="Cambiar foto de perfil">${avatarHTML('xl')}<span class="prof-cam">${icon('camera')}</span><input type="file" accept="image/*" data-upload="avatar" hidden></label>
       <h1>${esc(st.name || 'Tu perfil')}</h1>
-      <p class="prof-sub">${first ? `Escalando desde ${esc(I.parseDate(first).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }))}` : 'Bienvenida a tu cuaderno'} · ${esc(S.GYM.name.replace('Sharma Climbing', 'Sharma'))}</p>
+      <p class="prof-sub">${first ? `Escalando desde ${esc(I.parseDate(first).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }))}` : 'Bienvenida a tu cuaderno'} · ${esc(S.GYM.name)}</p>
       ${best ? `<div class="prof-level">Nivel ${gradeChip(best, 'sm')}</div>` : ''}
       <div class="prof-stats">
         <div><b>${nReal}</b><span>sesiones</span></div>
@@ -702,7 +710,7 @@ function monthCalendar() {
   realSessions().forEach((x) => {
     if (!x.date.startsWith(ym)) return;
     const b = (byDay[x.date] ||= { cls: 0, free: 0 });
-    if (x.kind === 'free') b.free++; else b.cls++;
+    if (x.kind === 'free' && !x.origKind) b.free++; else b.cls++;
   });
   const tot = Object.values(byDay).reduce((a, b) => ({ cls: a.cls + b.cls, free: a.free + b.free }), { cls: 0, free: 0 });
   const t = I.today();
@@ -876,7 +884,7 @@ function climbRow(c) {
 // ---------------- Registrar sesión ----------------
 function newDraft() {
   const t = I.today();
-  return { id: uid(), isNew: true, date: t, kind: P.isPlannedDay(t, set()) ? 'class' : 'free', with: [], type: 'boulder', duration: 90, rpe: null, mood: null, notes: '', climbs: [], newPhotos: [], removedPhotos: [], where: 'sharma', gymName: '' };
+  return { id: uid(), isNew: true, date: t, kind: P.isPlannedDay(t, set()) ? 'class' : 'free', with: [], type: 'boulder', duration: 90, rpe: null, mood: null, notes: '', climbs: [], newPhotos: [], removedPhotos: [], where: 'home', gymName: '' };
 }
 
 function ensureDraft() {
@@ -926,10 +934,10 @@ function viewEditor(editId) {
         ${friends.map((f) => `<button class="chip" data-action="with-add" data-v="${esc(f)}">＋ ${esc(f)}</button>`).join('')}</div>
       <div class="with-input"><input data-with placeholder="Escribe un nombre" enterkeyhint="done"><button class="btn sm" data-action="with-add-input">Añadir</button></div></div>` : ''}
     ${d.kind === 'free' ? `<div class="card where-card"><b>¿Dónde has escalado?</b>
-      ${seg('set-where', d.where === 'other' ? 'other' : 'sharma', { sharma: `${icon('pin')} ${esc(S.GYM.name.replace('Sharma Climbing', 'Sharma'))}`, other: 'Otro rocódromo' })}
+      ${seg('set-where', d.where === 'other' ? 'other' : 'home', { home: `${icon('pin')} ${esc(S.GYM.name)}`, other: 'Otro rocódromo' })}
       ${d.where === 'other' ? `<input data-gymname value="${esc(d.gymName || '')}" placeholder="Nombre del rocódromo" maxlength="60" autocomplete="off">
         ${otherGyms().length ? `<div class="chips">${otherGyms().map((g) => `<button class="chip ${d.gymName === g ? 'on' : ''}" data-action="pick-gym" data-v="${esc(g)}">📍 ${esc(g)}</button>`).join('')}</div>` : ''}
-        <small class="muted">Para los bloques, elige el color del Sharma que más se parezca en dificultad.</small>` : ''}</div>` : ''}
+        <small class="muted">Para los bloques, elige el color de ${esc(S.GYM.name)} que más se parezca en dificultad.</small>` : ''}</div>` : ''}
 
     ${seg('log-disc', disc, { boulder: `${icon('boulder')} Bloques`, route: `${icon('rope')} Vías` })}
     ${countsCard(disc)}
@@ -996,7 +1004,7 @@ function countsCard(disc) {
   </div>`;
 }
 
-// Contadores con los colores del otro rocódromo (cada uno equivale a un color del Sharma).
+// Contadores con los colores del otro rocódromo (cada uno equivale a un color de la sala).
 function otherCountsCard(d) {
   const name = (d.gymName || '').trim();
   const circ = gymCircuit(name);
@@ -1024,13 +1032,13 @@ function otherCountsCard(d) {
 // Hoja para configurar los colores de otro rocódromo.
 function openCircuitSheet(name) {
   const c = state.circ;
-  const reg = sharmaRegular();
+  const reg = homeRegular();
   const used = new Set(c.colors.map((x) => x.name.toLowerCase()));
   openSheet(`<div class="sheet">
     <div class="grabber"></div>
     <div class="sheet-head"><button class="link" data-action="close-sheet" type="button">Cancelar</button><b>Colores de ${esc(name)}</b><span></span></div>
     <div class="sheet-body">
-      <p class="muted small">Del más fácil (arriba) al más difícil (abajo). Cada color se compara con uno del Sharma para tu progreso; cámbialo si no encaja.</p>
+      <p class="muted small">Del más fácil (arriba) al más difícil (abajo). Cada color se compara con uno de ${esc(S.GYM.name)} para tu progreso; cámbialo si no encaja.</p>
       <div class="circ-list">${c.colors.length ? c.colors.map((g, k) => `<div class="circ-row">
         <input type="color" value="${esc(toHex(g.color))}" data-circ-color="${k}" aria-label="Color">
         <input value="${esc(g.name)}" data-circ-name="${k}" aria-label="Nombre" maxlength="20">
@@ -1200,7 +1208,7 @@ function viewGym() {
   const g = state.gym; const ui = state.ui;
   const head = `<div class="gym-hero">
       <h1 class="page-title">Sala</h1>
-      <p class="gym-addr">${icon('pin')} ${esc(S.GYM.name)} · <a href="${S.GYM.links.maps}" target="_blank" rel="noopener">Cómo llegar</a> · <a href="${S.GYM.links.hours}" target="_blank" rel="noopener">Horarios</a></p>
+      <p class="gym-addr">${icon('pin')} ${esc(S.GYM.name)} · <a href="${S.GYM.links.maps}" target="_blank" rel="noopener">Cómo llegar</a> · <a href="${S.GYM.links.hours}" target="_blank" rel="noopener">Horarios</a> · <a href="${S.GYM.links.capacity}" target="_blank" rel="noopener">Aforo</a></p>
     </div>`;
   if (!g && state.gymLoading) return `${head}<div class="skeleton-list">${'<div class="skel"></div>'.repeat(6)}</div>`;
   if (!g || (!g.boulders.length && !g.routes.length)) {
@@ -1365,7 +1373,7 @@ function monthlyChallenges() {
   const allMonth = state.sessions.filter((x) => x.date.startsWith(ym));
   const mClimbs = I.allClimbs(allMonth);
   const climbs = I.allClimbs(state.sessions);
-  const reg = sharmaRegular();
+  const reg = homeRegular();
   const bSentAll = climbs.filter((c) => c.discipline === 'boulder' && M.isSent(c)).map((c) => c.grade);
   const best = bSentAll.length ? Math.max(...bSentAll) : null;
   const cur = best != null ? reg.filter((g) => g.i <= best).pop() : reg.find((g) => g.name === set().usualCircuit) || reg[0];
@@ -1469,7 +1477,7 @@ function viewSettings() {
         <button class="icon-btn" data-action="scale-up" data-i="${i}" aria-label="Subir" ${i === 0 ? 'disabled' : ''}>↑</button>
         <button class="icon-btn" data-action="scale-del" data-i="${i}" aria-label="Eliminar">${icon('close')}</button></div>`).join('')}</div>
       <div class="row-gap wrap"><button class="btn ghost sm" data-action="scale-add">＋ Añadir</button>
-        <button class="btn ghost sm" data-action="scale-preset" data-v="sharma">Restablecer</button></div>
+        <button class="btn ghost sm" data-action="scale-preset" data-v="gym">Restablecer</button></div>
     </details>
     <div class="card">
       <h3>Tus datos</h3>
@@ -1482,7 +1490,7 @@ function viewSettings() {
       </div>
  <p class="muted small">${plural(realSessions().length, 'sesión', 'sesiones')} · ${plural(state.photos.size, 'foto', 'fotos')}${state.persisted ? ' · ✓ guardado de forma permanente en este móvil' : ''}${set().lastBackup ? ` · última copia ${ago(set().lastBackup)}` : ''}</p>
     </div>
-    <p class="muted small center about">Mi Escalada · app no oficial, sin relación con Sharma Climbing.<br>Los bloques y vías de la sala proceden del widget público de Vertical-Life.</p>`;
+    <p class="muted small center about">Mi Escalada · app no oficial, sin relación con Sputnik Climbing.<br>Los bloques y vías de la sala proceden del widget público de Vertical-Life.</p>`;
 }
 
 function toHex(c) {
@@ -1524,7 +1532,7 @@ async function saveSession() {
   const { isNew, newPhotos, removedPhotos, startedAt, ...session } = d;
   if (!session.duration) session.duration = 90;
   if (session.kind === 'free' && session.where === 'other' && !(session.gymName || '').trim()) { toast('Escribe el nombre del rocódromo'); return; }
-  if (session.kind !== 'free') session.where = 'sharma';
+  if (session.kind !== 'free') session.where = 'home';
   session.gym = session.where === 'other' ? session.gymName.trim().replace(/\s+/g, ' ') : S.GYM.name;
   delete session.gymName;
   const discs = new Set(session.climbs.map((c) => (c.discipline === 'invented' ? c.invKind : c.discipline)));
@@ -1629,6 +1637,8 @@ async function importData(file) {
       const m = M.migrate({ ...incoming, dataVersion: 1 }, sessions);
       sessions = m.sessions; incoming = m.settings;
     }
+    const g = M.migrateSharmaToGym(incoming, sessions);
+    sessions = g.sessions; incoming = g.settings;
     const photos = await Promise.all((data.photos || []).map(async ({ data: url, ...p }) => ({ ...p, blob: await dataURLToBlob(url) })));
     await db.putMany('sessions', sessions);
     await db.putMany('photos', photos);
@@ -1800,10 +1810,10 @@ const actions = {
     applyDraftDate(I.toISO(new Date(Date.now() - 86400000)), false);
     go('#/nueva'); toast('Elige la fecha en «¿Cuándo fue?»');
   },
-  'set-kind'(el) { state.draft.kind = el.dataset.v; state.draft.kindManual = true; if (el.dataset.v === 'class') state.draft.where = 'sharma'; saveDraftSoon(); rerender(); },
+  'set-kind'(el) { state.draft.kind = el.dataset.v; state.draft.kindManual = true; if (el.dataset.v === 'class') state.draft.where = 'home'; saveDraftSoon(); rerender(); },
   'set-where'(el) {
     const d = state.draft; d.where = el.dataset.v;
-    if (d.where === 'other' && d.climbs.some((c) => c.vlId)) toast('Los bloques concretos del Sharma se quitan al cambiar de rocódromo');
+    if (d.where === 'other' && d.climbs.some((c) => c.vlId)) toast(`Los bloques concretos de ${S.GYM.name} se quitan al cambiar de rocódromo`);
     if (d.where === 'other') d.climbs = d.climbs.filter((c) => !c.vlId);
     saveDraftSoon(); rerender();
   },
@@ -1989,7 +1999,7 @@ const actions = {
   },
   async 'scale-preset'() {
     if (!confirm('¿Restablecer los colores de la sala?')) return;
-    state.settings.boulderScale = M.DEFAULT_BOULDER_SCALE; state.settings.scalePreset = 'sharma';
+    state.settings.boulderScale = M.DEFAULT_BOULDER_SCALE; state.settings.scalePreset = 'gym';
     await saveSettings(); rerender();
   },
 };
@@ -2005,7 +2015,7 @@ function addWith(name) {
 function applyDraftDate(iso, redraw = true) {
   const d = state.draft; if (!d || !iso) return;
   d.date = iso;
-  if (!d.kindManual) { d.kind = P.isPlannedDay(iso, set()) ? 'class' : 'free'; if (d.kind === 'class') d.where = 'sharma'; }
+  if (!d.kindManual) { d.kind = P.isPlannedDay(iso, set()) ? 'class' : 'free'; if (d.kind === 'class') d.where = 'home'; }
   saveDraftSoon(); haptic();
   if (redraw) rerender();
 }

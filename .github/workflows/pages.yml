@@ -5,7 +5,7 @@ on:
     branches: [main]
   workflow_dispatch:
   schedule:
-    # Cada mañana y los jueves antes de la clase: actualiza bloques, vías y planos de la sala.
+    # Cada mañana y los jueves por la tarde: actualiza bloques, vías y planos de Sputnik Legazpi.
     - cron: '17 5 * * *'
     - cron: '43 15 * * 4'
 
@@ -30,7 +30,7 @@ jobs:
         with:
           node-version: 22
       - name: Actualizar datos de la sala (Vertical-Life)
-        run: node scripts/update-sharma.mjs
+        run: node scripts/update-gym.mjs
         continue-on-error: true
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

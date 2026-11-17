@@ -2,9 +2,10 @@
 import { uid } from './db.js';
 import { boulderScale, boulderIndexByName, ROUTE_GRADES } from './model.js';
 import { toISO } from './insights.js';
+import { GYM } from './gym.js';
 
-const B_SECTORS = ['Rhino', 'Cueva y Slab', 'Templo', 'Comp Wall', 'Corner'];
-const R_SECTORS = ['Mezzanine Wall', 'Cracks - Diamante - Puerta', 'Tótem'];
+const B_SECTORS = ['Sector 1', 'Sector 3', 'Sector 6', 'Sector 9', 'Sector 12'];
+const R_SECTORS = ['Autobelays'];
 
 export function makeDemo(settings, gym) {
   let seed = 7;
@@ -18,9 +19,9 @@ export function makeDemo(settings, gym) {
   const moves = ['dinamico', 'bloqueos', 'talon', 'puntera', 'compresion', 'coordinacion', 'equilibrio'];
   const g6b = ROUTE_GRADES.indexOf('6b');
   const projects = [
-    { name: 'El de los romos del Rhino', discipline: 'boulder', grade: regular[Math.min(regular.length - 1, 4)].i, styles: ['desplome'], holds: ['romos'], moves: ['talon', 'compresion'], zone: 'Rhino' },
-    { name: 'Travesía de la cueva', discipline: 'boulder', grade: regular[Math.min(regular.length - 1, 3)].i, styles: ['techo'], holds: ['regletas'], moves: ['bloqueos'], zone: 'Cueva y Slab' },
-    { name: 'La del diedro', discipline: 'route', grade: g6b + 1, styles: ['vertical'], holds: ['regletas', 'cantos'], moves: ['resistencia'], zone: 'Cracks - Diamante - Puerta' },
+    { name: 'El de los romos del sector 6', discipline: 'boulder', grade: regular[Math.min(regular.length - 1, 4)].i, styles: ['desplome'], holds: ['romos'], moves: ['talon', 'compresion'], zone: 'Sector 6' },
+    { name: 'Travesía de la cueva', discipline: 'boulder', grade: regular[Math.min(regular.length - 1, 3)].i, styles: ['techo'], holds: ['regletas'], moves: ['bloqueos'], zone: 'Sector 13-14' },
+    { name: 'La del diedro', discipline: 'route', grade: g6b + 1, styles: ['vertical'], holds: ['regletas', 'cantos'], moves: ['resistencia'], zone: 'Autobelays' },
   ];
   const sessions = [];
   const day = new Date(); day.setDate(day.getDate() - 75);
@@ -51,7 +52,7 @@ export function makeDemo(settings, gym) {
       climbs.push({
         id: uid(), discipline, grade, result: discipline === 'route' && result === 'flash' && rnd() < 0.5 ? 'onsight' : result,
         attempts: result === 'flash' ? 1 : 2 + Math.floor(rnd() * 5),
-        ropeMode: discipline === 'route' ? (rnd() < 0.5 ? 'lead' : 'toprope') : undefined,
+        ropeMode: discipline === 'route' ? 'auto' : undefined,
         styles: rnd() < 0.85 ? st : [], holds: some(holds, 1.3), moves: some(moves, 1.2),
         name: '', zone: discipline === 'route' ? pick(R_SECTORS) : pick(B_SECTORS), notes: '',
       });
@@ -61,12 +62,12 @@ export function makeDemo(settings, gym) {
         if (sessions.some((s) => s.climbs.some((c) => c.name === p.name && c.result === 'send'))) continue;
         const tries = sessions.filter((s) => s.climbs.some((c) => c.name === p.name)).length;
         const sentNow = tries >= 3 && rnd() < 0.5;
-        climbs.push({ id: uid(), ...p, result: sentNow ? 'send' : 'project', attempts: 3 + Math.floor(rnd() * 4), notes: sentNow ? '¡Por fin! El truco era meter el talón antes.' : '', ropeMode: p.discipline === 'route' ? 'lead' : undefined });
+        climbs.push({ id: uid(), ...p, result: sentNow ? 'send' : 'project', attempts: 3 + Math.floor(rnd() * 4), notes: sentNow ? '¡Por fin! El truco era meter el talón antes.' : '', ropeMode: p.discipline === 'route' ? 'auto' : undefined });
       }
     }
     const rpe = 5 + Math.floor(rnd() * 4);
     sessions.push({
-      id: uid(), demo: true, date: toISO(day), type, kind: day.getDay() === 4 ? 'class' : 'free', where: 'sharma', gym: 'Sharma Climbing Madrid',
+      id: uid(), demo: true, date: toISO(day), type, kind: day.getDay() === 4 ? 'class' : 'free', where: 'home', gym: GYM.name,
       with: day.getDay() !== 4 && rnd() < 0.5 ? [pick(['Gema', 'Marta', 'Lucía'])] : [], duration: 60 + 15 * Math.floor(rnd() * 6), rpe,
       mood: Math.min(4, Math.max(0, Math.round(2 + rnd() * 2.4 - (rpe > 7 ? 1 : 0)))),
       notes: rnd() < 0.3 ? pick(['Muy buenas sensaciones, pies precisos.', 'Dedos algo cansados, he parado antes.', 'Sesión con amigas y algún bloque nuevo.', 'Han reequipado la cueva, ¡qué bloques más chulos!']) : '',
