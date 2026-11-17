@@ -1046,3 +1046,32 @@ button.cd:active { transform: scale(.9); }
 .dur-custom { display: flex; gap: 14px; align-items: center; margin-top: 10px; }
 .dur-custom label { display: flex; align-items: center; gap: 6px; font-weight: 600; color: var(--muted); }
 .dur-custom input, .dur-custom select { width: 72px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font: inherit; font-weight: 700; text-align: center; }
+
+/* Tu nivel cada semana */
+.wl-card { display: grid; gap: 14px; }
+.wl-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.wl-head h3 { margin: 0 0 2px; }
+.wl-head small { font-size: 12.5px; }
+.seg.mini { padding: 3px; border-radius: 12px; flex: none; }
+.seg.mini button { padding: 6px 12px; font-size: 13px; border-radius: 9px; }
+.wl-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.wl-stats > div { display: grid; gap: 6px; justify-items: start; padding: 10px 12px; border-radius: 14px; background: var(--surface-2); }
+.wl-stats small { font-size: 11.5px; color: var(--muted); font-weight: 600; }
+.wl-stats b { font-size: 18px; line-height: 21px; }
+.wl-stats em { font-style: normal; color: var(--muted); font-weight: 600; font-size: 13px; }
+.wl-plot { position: relative; }
+.wl-chart .wl-grid { stroke-dasharray: 2 4; }
+.wl-chart .wl-base { stroke: var(--border); stroke-width: 1.5; }
+.wl-chart .wl-dot { stroke: var(--border); stroke-width: 1; }
+.wl-chart .wl-bar { stroke: color-mix(in srgb, var(--text) 14%, transparent); stroke-width: 1; }
+.wl-chart .wl-none { fill: var(--border); }
+.wl-chart .wl-hit { fill: transparent; cursor: pointer; }
+.wl-chart .wl-band { fill: var(--text); opacity: 0; transition: opacity .15s; pointer-events: none; }
+.wl-plot.tip-on .wl-band { opacity: .05; }
+.view.enter .wl-chart .wl-bar { transform-box: fill-box; transform-origin: bottom; animation: rise-bar .8s var(--ease) both; }
+.wl-tip { position: absolute; z-index: 2; transform: translate(-50%, calc(-100% - 10px)); pointer-events: none; opacity: 0; transition: opacity .12s;
+  display: grid; gap: 2px; min-width: 112px; padding: 8px 10px; border-radius: 12px; background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow-lg); white-space: nowrap; }
+.wl-plot.tip-on .wl-tip { opacity: 1; }
+.wl-tip small { font-size: 11.5px; color: var(--muted); }
+.wl-tip b { display: flex; align-items: center; gap: 6px; font-size: 14px; color: var(--text); }
+.wl-tip b i { width: 10px; height: 10px; border-radius: 50%; border: 1px solid var(--border); }
