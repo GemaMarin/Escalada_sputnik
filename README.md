@@ -1,4 +1,6 @@
-# 🧗‍♀️ Mi Escalada
+# 🧗‍♀️ Escalada Sputnik
+
+> Copia independiente de [Escalada](https://github.com/GemaMarin/Escalada): datos, caché y copias de seguridad propias. Web: https://gemamarin.github.io/Escalada_sputnik/
 
 App web para registrar entrenamientos de escalada en rocódromo (pensada para **Sharma Climbing Madrid**, pero vale para cualquier sala).
 Funciona en el móvil, se puede instalar en la pantalla de inicio y funciona sin conexión.

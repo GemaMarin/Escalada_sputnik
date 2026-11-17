@@ -11,7 +11,7 @@ import { sessionImage, progressImage } from './shareimg.js';
 
 const DATA_VERSION = 4;
 const DEFAULT_SETTINGS = {
-  key: 'settings', name: 'Laura', gym: S.GYM.name, weeklyGoal: 1, theme: 'light',
+  key: 'settings', name: '', gym: S.GYM.name, weeklyGoal: 1, theme: 'light',
   boulderScale: M.DEFAULT_BOULDER_SCALE, scalePreset: 'sharma', dataVersion: DATA_VERSION, liveGym: true,
   schedule: { days: [4], time: '19:00' }, extraDates: [], skipped: [],
 };
@@ -63,10 +63,9 @@ async function init() {
   if ((stored.dataVersion || 1) < 3 && settings) {
     if (!stored.weeklyGoal || stored.weeklyGoal === 3) state.settings.weeklyGoal = 1;
   }
-  // v4: tema claro por defecto y nombre de Laura si no había ninguno.
+  // v4: tema claro por defecto.
   if ((stored.dataVersion || 1) < 4 && settings) {
     if (!stored.theme) state.settings.theme = 'light';
-    if (!stored.name) state.settings.name = 'Laura';
   }
   state.settings.dataVersion = DATA_VERSION;
   if (!state.settings.planSince) {
@@ -1610,9 +1609,9 @@ async function exportData() {
   toast('Preparando copia…');
   const photos = await Promise.all([...state.photos.values()].map(async ({ blob, ...p }) => ({ ...p, data: await blobToDataURL(blob) })));
   const av = await db.get('settings', 'avatar');
-  const data = { app: 'cuaderno-escalada', version: 2, exportedAt: new Date().toISOString(), settings: state.settings, sessions: state.sessions, photos, avatar: av?.blob ? await blobToDataURL(av.blob) : null };
+  const data = { app: 'escalada-sputnik', version: 2, exportedAt: new Date().toISOString(), settings: state.settings, sessions: state.sessions, photos, avatar: av?.blob ? await blobToDataURL(av.blob) : null };
   const url = URL.createObjectURL(new Blob([JSON.stringify(data)], { type: 'application/json' }));
-  const a = Object.assign(document.createElement('a'), { href: url, download: `escalada-${I.today()}.json` });
+  const a = Object.assign(document.createElement('a'), { href: url, download: `escalada-sputnik-${I.today()}.json` });
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 5000);
   state.settings.lastBackup = Date.now(); await saveSettings();
@@ -1622,7 +1621,7 @@ async function exportData() {
 async function importData(file) {
   try {
     const data = JSON.parse(await file.text());
-    if (data.app !== 'cuaderno-escalada' || !Array.isArray(data.sessions)) throw new Error('formato');
+    if (data.app !== 'escalada-sputnik' || !Array.isArray(data.sessions)) throw new Error('formato');
     if (!confirm(`¿Restaurar ${plural(data.sessions.length, 'sesión', 'sesiones')} y ${plural(data.photos?.length || 0, 'foto', 'fotos')}? Se combinarán con los datos actuales.`)) return;
     let { sessions } = data;
     let incoming = data.settings || {};

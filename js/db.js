@@ -1,6 +1,7 @@
 // Almacenamiento local con IndexedDB: sesiones, fotos y ajustes.
 // Todo vive en el navegador del dispositivo (no hay servidor).
-const DB_NAME = 'cuaderno-escalada';
+// Base de datos propia: independiente de la app de Escalada aunque compartan dominio.
+const DB_NAME = 'escalada-sputnik';
 const DB_VERSION = 1;
 let dbPromise;
 

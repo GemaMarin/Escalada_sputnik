@@ -10,7 +10,7 @@ const OUT = new URL('../data/sharma.json', import.meta.url);
 const OUT_EVENTS = new URL('../data/events.json', import.meta.url);
 const EVENTS_API = 'https://sharmaclimbing.com/wp-json/tribe/events/v1/events';
 const MADRID_CAT = 174; // categoría «Sharma Climbing Madrid» en la web de la sala
-const PREV = process.env.PREV_URL || 'https://gemamarin.github.io/Escalada/data/sharma.json';
+const PREV = process.env.PREV_URL || 'https://gemamarin.github.io/Escalada_sputnik/data/sharma.json';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function get(url, fragment = false, tries = 3) {

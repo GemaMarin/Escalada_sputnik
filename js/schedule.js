@@ -74,7 +74,7 @@ export function scheduleICS(settings) {
   const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
   const url = location.href.split('#')[0];
   const ev = (uid, s, e, rrule) => [
-    'BEGIN:VEVENT', `UID:${uid}@cuaderno-escalada`, `DTSTAMP:${stamp}`,
+    'BEGIN:VEVENT', `UID:${uid}@escalada-sputnik`, `DTSTAMP:${stamp}`,
     `DTSTART;TZID=Europe/Madrid:${fmt(s)}`, `DTEND;TZID=Europe/Madrid:${fmt(e)}`, rrule,
     'SUMMARY:🧗‍♀️ Escalada', `LOCATION:${settings.gym || 'Rocódromo'}`,
     `DESCRIPTION:Al terminar\\, registra tu sesión: ${url}`, `URL:${url}`,
