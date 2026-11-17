@@ -9,11 +9,11 @@ import * as P from './schedule.js';
 import * as N from './notes.js';
 import { sessionImage, progressImage } from './shareimg.js';
 
-const DATA_VERSION = 5;
+const DATA_VERSION = 6;
 const DEFAULT_SETTINGS = {
   key: 'settings', name: '', gym: S.GYM.name, weeklyGoal: 1, theme: 'light',
   boulderScale: M.DEFAULT_BOULDER_SCALE, scalePreset: 'gym', dataVersion: DATA_VERSION, liveGym: true,
-  schedule: { days: [4], time: '19:00' }, extraDates: [], skipped: [],
+  schedule: { days: [], time: '19:00' }, extraDates: [], skipped: [],
 };
 
 const state = {
@@ -74,6 +74,11 @@ async function init() {
     if (draft?.value) draft.value = toGym.sessions.pop();
     state.sessions = toGym.sessions;
     if (state.sessions.length) await db.putMany('sessions', state.sessions);
+  }
+  // v6: sin días fijos por defecto. El jueves 19:00 era el horario de clase de la versión del Sharma.
+  if ((stored.dataVersion || 1) < 6 && settings) {
+    const sch = stored.schedule;
+    if (!sch || (String(sch.days) === '4' && (sch.time || '19:00') === '19:00')) state.settings.schedule = { days: [], time: '19:00' };
   }
   state.settings.dataVersion = DATA_VERSION;
   if (!state.settings.planSince) {
@@ -316,7 +321,7 @@ function avatarHTML(size = '') {
   const name = set().name?.trim() || '';
   return state.avatarURL
     ? `<span class="avatar ${size}"><img src="${state.avatarURL}" alt=""></span>`
-    : `<span class="avatar ${size}">${esc((name || '🧗').slice(0, 1).toUpperCase())}</span>`;
+    : `<span class="avatar ${size}">${esc(name ? [...name][0].toUpperCase() : '🧗')}</span>`;
 }
 
 function sessionCard(s) {
@@ -477,6 +482,12 @@ function planCardHTML(plan) {
       ${typeBtns(plan.pending)}
       <button class="link muted-link" data-action="plan-skip" data-date="${plan.pending}">No fui a escalar</button></div>`;
   }
+  if (plan.today?.flexible) {
+    return `<div class="card plan">
+      <div class="plan-head"><span class="plan-ic">${icon('clock')}</span><div><b>¿Has ido a escalar hoy?</b><small>Registra tu sesión: ¿bloque o vías?</small></div></div>
+      ${typeBtns(plan.today.date)}
+      <button class="link muted-link" data-action="plan-skip" data-date="${plan.today.date}">Hoy no he ido</button></div>`;
+  }
   if (plan.today) {
     return `<div class="card plan">
       <div class="plan-head"><span class="plan-ic">${icon('clock')}</span><div><b>Hoy toca escalar${plan.today.after ? '' : ` a las ${esc(plan.time)}`}</b><small>${plan.today.after ? 'Apunta los bloques que has hecho.' : '¿Bloque o vías? Ábrelo al llegar.'}</small></div></div>
@@ -485,11 +496,12 @@ function planCardHTML(plan) {
   if (plan.next) {
     return `<button class="next-line" data-action="open-plan">${icon('calendar')}<span>Próxima sesión: <b>${esc(P.niceDate(plan.next, false))}</b> · ${esc(plan.time)}</span>${icon('chevron')}</button>`;
   }
+  if (plan.flexible) return '';
   return `<button class="next-line" data-action="open-plan">${icon('calendar')}<span>Configura tus días de escalada</span>${icon('chevron')}</button>`;
 }
 
 function planSheet() {
-  const st = set(); const sch = st.schedule || { days: [4], time: '19:00' };
+  const st = set(); const sch = st.schedule || { days: [], time: '19:00' };
   const extras = (st.extraDates || []).filter((d) => d >= I.today()).sort();
   openSheet(`<div class="sheet">
     <div class="grabber"></div>
@@ -497,16 +509,25 @@ function planSheet() {
     <div class="sheet-body">${scheduleFields(sch, extras)}</div></div>`);
 }
 
+// Elegir entre «sin días fijos» (voy cuando puedo) o días fijos con hora.
+function daysPicker(sch) {
+  const days = (sch.days || []).map(String);
+  const fixed = days.length || state.ui.schFixed;
+  return `${seg('sch-mode', fixed ? 'fixed' : 'free', { free: 'Cuando puedo', fixed: 'Días fijos' })}
+    ${fixed ? `<div class="weekdays">${P.WEEKDAYS.map(([d, l]) => `<button class="wd ${days.includes(d) ? 'on' : ''}" data-action="sch-day" data-v="${d}" aria-label="${l}">${l}</button>`).join('')}</div>`
+      : '<small class="muted">Sin horario: cada día te recordamos registrar la sesión si has ido.</small>'}`;
+}
+
 function scheduleFields(sch, extras) {
-  return `<div class="field"><span>Días fijos</span>
-      <div class="weekdays">${P.WEEKDAYS.map(([d, l]) => `<button class="wd ${(sch.days || []).map(String).includes(d) ? 'on' : ''}" data-action="sch-day" data-v="${d}" aria-label="${l}">${l}</button>`).join('')}</div></div>
-    <label class="field inline"><span>Hora de la clase</span><input type="time" data-sch-time value="${esc(sch.time || '19:00')}"></label>
+  const fixed = (sch.days || []).length;
+  return `<div class="field"><span>¿Cuándo sueles escalar?</span>${daysPicker(sch)}</div>
+    ${fixed ? `<label class="field inline"><span>Hora</span><input type="time" data-sch-time value="${esc(sch.time || '19:00')}"></label>` : ''}
     <div class="field"><span>Días sueltos <small class="muted">p. ej. un sábado que vais</small></span>
       <div class="chips">${extras.map((d) => `<span class="chip on">${esc(P.niceDate(d))} <button class="chip-x" data-action="sch-extra-del" data-v="${d}" aria-label="Quitar">${icon('close')}</button></span>`).join('')}
         <button class="chip" data-action="sch-extra-add" data-v="${I.toISO(new Date(Date.now() + 86400000))}">＋ Mañana</button>
         <label class="chip">＋ Otro día<input type="date" data-sch-extra min="${I.today()}" class="hidden-date"></label></div></div>
-    <button class="btn ghost block" data-action="ics">${icon('calendar')} Añadir recordatorios a mi calendario</button>
-    <p class="muted small">Se crea un evento semanal en el calendario del móvil que te avisa antes de la clase y, al terminar, te recuerda apuntar la sesión.</p>`;
+    ${fixed || extras.length ? `<button class="btn ghost block" data-action="ics">${icon('calendar')} Añadir recordatorios a mi calendario</button>
+    <p class="muted small">Se crea un evento en el calendario del móvil que te avisa antes de ir y, al terminar, te recuerda apuntar la sesión.</p>` : ''}`;
 }
 
 // ---------------- Eventos y novedades ----------------
@@ -662,9 +683,8 @@ function viewOnboarding() {
     <p class="eyebrow">Paso 2 de 2</p>
     <h1>Cuéntanos un poco de ti</h1>
     <label class="field"><span>¿Cómo te llamas?</span><input data-setting="name" value="${esc(set().name)}" placeholder="Tu nombre" autocomplete="given-name"></label>
-    <div class="field"><span>¿Qué días sueles ir a escalar?</span>
-      <div class="weekdays">${P.WEEKDAYS.map(([d, l]) => `<button class="wd ${(set().schedule?.days || []).map(String).includes(d) ? 'on' : ''}" data-action="sch-day" data-v="${d}">${l}</button>`).join('')}</div></div>
-    <label class="field inline"><span>¿A qué hora?</span><input type="time" data-sch-time value="${esc(set().schedule?.time || '19:00')}"></label>
+    <div class="field"><span>¿Cuándo sueles ir a escalar?</span>${daysPicker(set().schedule || {})}</div>
+    ${(set().schedule?.days || []).length ? `<label class="field inline"><span>¿A qué hora?</span><input type="time" data-sch-time value="${esc(set().schedule?.time || '19:00')}"></label>` : ''}
     <div class="field"><span>¿Qué color de bloque sueles escalar?</span>
       <div class="grade-grid">${scale.map((g) => `<button class="grade-pick ${set().usualCircuit === g.name ? 'on' : ''}" style="${C.gradeStyle(g.color)}" data-action="set-usual" data-v="${esc(g.name)}">${esc(g.name)}</button>`).join('')}</div></div>
     <button class="btn primary block big" data-action="onb-done">¡Vamos!</button>
@@ -1467,7 +1487,7 @@ function viewSettings() {
     </div>
     <div class="card form">
       <h3>${icon('calendar')} Tus días de escalada</h3>
-      ${scheduleFields(st.schedule || { days: [4], time: '19:00' }, (st.extraDates || []).filter((d) => d >= I.today()).sort())}
+      ${scheduleFields(st.schedule || { days: [], time: '19:00' }, (st.extraDates || []).filter((d) => d >= I.today()).sort())}
     </div>
     ${Object.keys(set().otherGyms || {}).length ? `<div class="card"><h3>${icon('pin')} Otros rocódromos</h3>${Object.values(set().otherGyms).map((g) => `<div class="og-row"><b>${esc(g.name)}</b><span class="og-dots">${g.colors.map((c) => `<i style="background:${esc(c.color)}" title="${esc(c.name)}"></i>`).join('')}</span><button class="link" data-action="og-edit" data-v="${esc(g.name)}">Editar</button></div>`).join('')}</div>` : ''}
     <div class="card form">
@@ -1723,8 +1743,13 @@ const actions = {
     await saveSettings(); toast('Vale, ¡a la próxima! 💪'); rerender();
   },
   'open-plan'() { planSheet(); },
+  async 'sch-mode'(el) {
+    state.ui.schFixed = el.dataset.v === 'fixed';
+    if (!state.ui.schFixed) { state.settings.schedule = { time: '19:00', ...set().schedule, days: [] }; await saveSettings(); }
+    refreshPlanUI();
+  },
   async 'sch-day'(el) {
-    const sch = { days: [4], time: '19:00', ...set().schedule };
+    const sch = { days: [], time: '19:00', ...set().schedule };
     const v = Number(el.dataset.v); const days = (sch.days || []).map(Number);
     sch.days = days.includes(v) ? days.filter((x) => x !== v) : [...days, v];
     state.settings.schedule = sch; await saveSettings(); refreshPlanUI();
@@ -2095,7 +2120,7 @@ async function onChange(e) {
     return;
   }
   if (el.hasAttribute('data-sch-time')) {
-    state.settings.schedule = { days: [4], ...set().schedule, time: el.value || '19:00' }; await saveSettings(); return;
+    state.settings.schedule = { days: [], ...set().schedule, time: el.value || '19:00' }; await saveSettings(); return;
   }
   if (el.hasAttribute('data-sch-extra')) { await addExtraDate(el.value); return; }
   if (el.dataset.gymSelect) { state.ui[el.dataset.gymSelect] = el.value; rerender(); return; }

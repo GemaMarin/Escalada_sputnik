@@ -30,7 +30,7 @@ const minutes = (hhmm) => { const [h, m] = (hhmm || '19:00').split(':').map(Numb
 
 // { today, pending, next } según el horario y las sesiones registradas.
 export function planState(settings, sessions, draft) {
-  const sch = settings.schedule || { days: [4], time: '19:00' };
+  const sch = settings.schedule || { days: [], time: '19:00' };
   const sch2 = { ...sch, extraDates: settings.extraDates || [] };
   const logged = new Set(sessions.map((s) => s.date));
   if (draft?.isNew && draft.climbs?.length) logged.add(draft.date);
@@ -51,6 +51,11 @@ export function planState(settings, sessions, draft) {
     if (isPlanned(iso, sch2) && !logged.has(iso) && !skipped.has(iso) && iso >= (settings.planSince || '0')) { res.pending = iso; break; }
   }
   if (res.pending === t) res.today = null;
+  // Sin días fijos: cada día, un recordatorio para registrar la sesión (si aún no está apuntada).
+  if (!(sch.days || []).length) {
+    res.flexible = true;
+    if (!res.today && !res.pending && !logged.has(t) && !skipped.has(t)) res.today = { date: t, flexible: true };
+  }
   // Próxima
   for (let i = res.today ? 1 : 0; i <= 14; i++) {
     const d = new Date(now); d.setDate(d.getDate() + i);
@@ -63,7 +68,7 @@ export function planState(settings, sessions, draft) {
 
 // Calendario (.ics) con el horario semanal y aviso para registrar la sesión.
 export function scheduleICS(settings) {
-  const sch = settings.schedule || { days: [4], time: '19:00' };
+  const sch = settings.schedule || { days: [], time: '19:00' };
   const days = (sch.days || []).map(Number);
   const byday = days.map((d) => ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'][d]).join(',');
   const [h, m] = (sch.time || '19:00').split(':').map(Number);
@@ -94,6 +99,6 @@ export function scheduleICS(settings) {
 }
 
 export function isPlannedDay(iso, settings) {
-  const sch = settings.schedule || { days: [4], time: '19:00' };
+  const sch = settings.schedule || { days: [], time: '19:00' };
   return isPlanned(iso, { ...sch, extraDates: settings.extraDates || [] });
 }

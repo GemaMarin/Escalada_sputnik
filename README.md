@@ -21,6 +21,8 @@ Funciona en el móvil, se puede instalar en la pantalla de inicio y funciona sin
 
 **Bloques concretos de la sala:** eliges Bloque o Vías, salen los bloques montados ahora en la sala (por color y sector) y para cada uno marcas *A la primera*, *Lo conseguí* o *Lo intenté*. Si no sabes cuál era, lo apuntas solo con el color. Cada bloque de la sala queda como **Conseguido**, **Intentando** o **Sin probar**, y en Inicio aparecen **Tus retos** (los que intentaste y siguen montados). Objetivo por defecto: 1 sesión a la semana.
 
+**Días de escalada:** por defecto «Cuando puedo» (sin horario): cada día Inicio muestra un recordatorio «¿Has ido a escalar hoy?» para registrar la sesión, que se quita con «Hoy no he ido». Si eliges «Días fijos» (en la bienvenida o en Ajustes), la app avisa esos días a la hora indicada, marca las sesiones como clase y puede añadir recordatorios al calendario del móvil.
+
 **Sala en directo (Sputnik Legazpi):** la pestaña *Sala* muestra los bloques y vías montados ahora mismo (sector, circuito, color de presa, número, fecha de apertura, novedades), con el plano de sectores (Sector 1 … Sector 13-14, Familias y Autobelays) y la foto del muro con la zona de cada bloque. En la cabecera hay enlaces a cómo llegar, horarios y aforo en directo. Se registran con un toque (Flash / Encadenado / Proyecto) y la app enseña cuánto llevas de cada circuito (p. ej. «Verde 18/24»). Los datos vienen del widget público de Vertical-Life de la sala (`sputnik-legazpi`); si no hay conexión se usa la última copia guardada.
 
 - **Sesiones**: fecha, tipo (bloque, vías, mixta, entreno), duración, esfuerzo percibido (RPE), cómo te has sentido y notas.
