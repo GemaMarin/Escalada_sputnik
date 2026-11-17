@@ -873,25 +873,32 @@ async function shareProgressImage() {
   toast('Creando imagen…');
   const all = state.sessions; const real = realSessions();
   const climbs = I.allClimbs(all);
+  const disc = state.ui.progDisc === 'route' ? 'route' : 'boulder';
   const scale = M.boulderScale(set());
-  const regular = scale.map((g, i) => ({ ...g, i })).filter((g) => !g.joker);
-  const bSent = climbs.filter((c) => c.discipline === 'boulder' && M.isSent(c));
+  // Niveles de la disciplina elegida en Progreso: colores de bloque o grados de vía.
+  const regular = disc === 'route'
+    ? M.ROUTE_GRADES.map((name, i) => ({ name, i, color: M.gradeColor({ discipline: 'route', grade: i }, set()) }))
+    : scale.map((g, i) => ({ ...g, i })).filter((g) => !g.joker);
+  const dClimbs = climbs.filter((c) => c.discipline === disc);
+  const bSent = dClimbs.filter(M.isSent);
   const best = bSent.length ? Math.max(...bSent.map((c) => c.grade)) : null;
   const cur = best != null ? regular.filter((g) => g.i <= best).pop() : null;
   const next = cur ? regular.find((g) => g.i > cur.i) : null;
   const first = real.length ? I.sortSessions(real)[real.length - 1].date : (all.length ? I.sortSessions(all)[all.length - 1].date : null);
-  const weeks = I.weeklyProgress(all, 'boulder', 10);
+  const weeks = I.weeklyProgress(all, disc, 10);
   const top = Math.max(1, ...weeks.map((w) => w.max ?? 0)) + 1;
   const blob = await progressImage({
     name: set().name, gym: set().gym, avatar: state.avatarURL,
     since: first ? `Escalando desde ${I.parseDate(first).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}` : '',
-    level: cur ? { name: cur.name, color: toHex(cur.color), num: regular.findIndex((g) => g.i === cur.i) + 1, next: next?.name } : null,
-    stats: [[real.length, 'sesiones'], [climbs.filter(M.isSent).length, 'conseguidos'], [climbs.filter((c) => statusOf(c.result) === 'flash').length, 'a la primera'], [I.weekStreak(real), 'semanas seguidas']],
-    rowsTitle: 'Bloques conseguidos por color',
+    level: cur ? (disc === 'route'
+      ? { name: cur.name, color: toHex(cur.color), num: cur.name, cap: 'GRADO', title: 'Mi grado en vías', next: next?.name }
+      : { name: cur.name, color: toHex(cur.color), num: regular.findIndex((g) => g.i === cur.i) + 1, cap: 'NIVEL', title: 'Mi color', next: next?.name }) : null,
+    stats: [[real.length, 'sesiones'], [bSent.length, disc === 'route' ? 'vías' : 'bloques'], [dClimbs.filter((c) => statusOf(c.result) === 'flash').length, 'a la primera'], [I.weekStreak(real), 'semanas seguidas']],
+    rowsTitle: disc === 'route' ? 'Vías conseguidas por grado' : 'Bloques conseguidos por color',
     rows: regular.map((g) => ({ label: g.name, color: toHex(g.color), sent: bSent.filter((c) => c.grade === g.i).length })).filter((r) => r.sent).reverse(),
-    weeks: weeks.map((w) => ({ color: w.max != null ? toHex(M.gradeColor({ discipline: 'boulder', grade: w.max }, set())) : null, h: w.max != null ? (w.max + 1) / top : 0 })),
+    weeks: weeks.map((w) => ({ color: w.max != null ? toHex(M.gradeColor({ discipline: disc, grade: w.max }, set())) : null, h: w.max != null ? (w.max + 1) / top : 0 })),
   });
-  showShareSheet(blob, `mi-progreso-${I.today()}.png`, 'Mi progreso');
+  showShareSheet(blob, `mi-progreso-${disc === 'route' ? 'vias' : 'bloques'}-${I.today()}.png`, disc === 'route' ? 'Mi progreso · Vías' : 'Mi progreso · Bloques');
 }
 
 function climbRow(c) {
@@ -1053,7 +1060,7 @@ function countsCard(disc) {
     ${addRoute}
     ${(() => { const inv = d.climbs.filter((c) => c.discipline === 'invented' && c.invKind === disc); const n1 = inv.filter(M.isSent).length; const n2 = inv.length - n1;
       const c2 = (sent, n) => `<div class="ctr ${sent ? 'send' : 'proj'} ${n ? 'has' : ''}"><button data-action="cnt" data-g="inv" data-r="${sent ? 'send' : 'project'}" data-d="-1" aria-label="Menos" ${n ? '' : 'disabled'}>${icon('minus')}</button><b>${n}</b><button data-action="cnt" data-g="inv" data-r="${sent ? 'send' : 'project'}" data-d="1" aria-label="Más">${icon('plus')}</button></div>`;
-      if (disc === 'boulder' && !inv.length) return '';
+      if (!inv.length) return '';
       return `<div class="crow inv-row ${inv.length ? 'active' : ''}"><span class="inv-label"><b>✏️ Inventado</b><small>libre del profe</small></span>${c2(true, n1)}${c2(false, n2)}</div>`; })()}
     ${mine.length ? `<p class="counts-sum">${hardest != null ? `Lo más difícil conseguido: <b>${esc(label(hardest))}</b>` : ''}${hardestTry != null && (hardest == null || hardestTry > hardest) ? `${hardest != null ? ' · ' : ''}Has llegado a intentar <b>${esc(label(hardestTry))}</b>` : ''}</p>` : ''}
   </div>`;
@@ -1148,7 +1155,8 @@ function logPicker(disc) {
   return `<section class="picker">
     <p class="muted small sub">Toca uno y elige cómo te ha ido. Se suma a los contadores de arriba.</p>
     ${filterChips}
-    ${sectors.length > 1 ? `<div class="chips scroll sector-chips"><button class="chip sm ${state.ui.logSector === 'all' ? 'on' : ''}" data-action="log-sector" data-v="all">Todos los sectores</button>${sectors.map((x) => `<button class="chip sm ${state.ui.logSector === x ? 'on' : ''}" data-action="log-sector" data-v="${esc(x)}">${esc(x)}</button>`).join('')}</div>` : ''}
+    ${sectors.length ? `<div class="chips scroll sector-chips"><button class="chip sm map-btn ${state.ui.logMap ? 'on' : ''}" data-action="log-map">${icon('map')} Plano</button><button class="chip sm ${state.ui.logSector === 'all' ? 'on' : ''}" data-action="log-sector" data-v="all">Todos los sectores</button>${sectors.map((x) => `<button class="chip sm ${state.ui.logSector === x ? 'on' : ''}" data-action="log-sector" data-v="${esc(x)}">${esc(x)}</button>`).join('')}</div>` : ''}
+    ${state.ui.logMap && sectors.length ? gymMapCard(sectors.map((name) => ({ name, id: list.find((x) => x.sector === name)?.sectorId })), { active: state.ui.logSector, action: 'log-sector-map', visible: () => route() === 'nueva' && state.ui.logMap }) : ''}
     ${shown.length ? `<div class="tile-grid">${shown.map((x) => itemTile(x, itemStatus(log.get(x.vlId)), { inSession: inSession.get(x.vlId), showGrade: disc === 'route' || state.ui.logCircuit === 'new' })).join('')}</div>`
       : '<p class="muted small center pad">No hay nada aquí ahora mismo.</p>'}
     <p class="tile-legend">${statusBadge('sent')} conseguido antes · ${statusBadge('trying')} intentado antes</p>
@@ -1318,18 +1326,18 @@ function viewGym() {
       <button class="link" data-action="gym-refresh">${icon('refresh')} Actualizar</button></p>`;
 }
 
-function gymMapCard(sectors) {
+function gymMapCard(sectors, { active, action = 'gym-sector', visible = () => route() === 'sala' && state.ui.gymMap } = {}) {
   const known = sectors.filter((s) => state.gymSectors[s.id]);
   const missing = sectors.filter((s) => s.id && !(s.id in state.gymSectors));
   if (missing.length) {
     Promise.all(missing.map((s) => S.getSector(s.id).then((t) => { state.gymSectors[s.id] = t; }).catch(() => { state.gymSectors[s.id] = null; })))
-      .then(() => { if (route() === 'sala' && state.ui.gymMap) rerender(); });
+      .then(() => { if (visible()) rerender(); });
   }
-  const activeId = sectors.find((s) => s.name === state.ui.gymSector)?.id;
+  const activeId = sectors.find((s) => s.name === (active ?? state.ui.gymSector))?.id;
   const withTopo = known.map((s) => ({ ...s, topo: state.gymSectors[s.id] })).filter((s) => s.topo);
   return `<div class="card map-card">
     ${withTopo.length ? '<p class="map-hint">Toca un sector para ver sus bloques.</p>' : ''}
-    ${withTopo.length ? S.sectorMapHTML(withTopo, activeId) : missing.length ? '<div class="skel tall"></div>' : '<p class="muted small">El plano de la sala aún no está disponible.</p>'}
+    ${withTopo.length ? S.sectorMapHTML(withTopo, activeId, action) : missing.length ? '<div class="skel tall"></div>' : '<p class="muted small">El plano de la sala aún no está disponible.</p>'}
   </div>`;
 }
 
@@ -2075,6 +2083,12 @@ const actions = {
     state.ui.gymSector = state.ui.gymSector === v ? 'all' : v; haptic(); rerender();
   },
   'gym-map'() { state.ui.gymMap = !state.ui.gymMap; rerender(); },
+  'log-map'() { state.ui.logMap = !state.ui.logMap; haptic(); rerender(); },
+  'log-sector-map'(el) {
+    const items = state.ui.logDisc === 'route' ? state.gym.routes : state.gym.boulders;
+    const v = items.find((x) => x.sectorId === el.dataset.v)?.sector || 'all';
+    state.ui.logSector = state.ui.logSector === v ? 'all' : v; haptic(); rerender();
+  },
   'gym-clear'() { Object.assign(state.ui, { gymSector: 'all', gymCircuit: 'all', gymFilter: 'all' }); rerender(); },
   'gym-refresh'() { loadGym(true); toast('Actualizando la sala…'); },
   async 'scale-add'() {

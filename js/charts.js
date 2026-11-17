@@ -189,8 +189,7 @@ export function weeklyLevelChart(data, { labelFor, colorFor, levels }) {
     }
     const tip = d.max != null ? `${esc(labelFor(d.max))}|${d.count} conseguido${d.count === 1 ? '' : 's'}|${colorFor(d.max)}` : 'Sin escalar||';
     hits += `<rect class="wl-hit" x="${L + bw * i}" y="${T}" width="${bw}" height="${plotH + B}" data-tip="${tip}" data-wk="${i === last ? 'Esta semana' : `Semana del ${shortWeek(d.week)}`}" data-x="${cx}" data-y="${d.max != null ? y(pos(d.max)) : base}"/>`;
-    if (i === last) xl += `<text x="${cx}" y="${H - 8}" text-anchor="end" class="axis strong">Esta</text>`;
-    else if ((last - i) % 3 === 0) xl += `<text x="${cx}" y="${H - 8}" text-anchor="middle" class="axis">${shortWeek(d.week)}</text>`;
+    if ((last - i) % 3 === 0) xl += `<text x="${cx}" y="${H - 8}" text-anchor="${i === last ? 'end' : 'middle'}" class="axis">${shortWeek(d.week)}</text>`;
   });
   return `<div class="wl-plot"><svg viewBox="0 0 ${W} ${H}" class="chart wl-chart" role="img" aria-label="Nivel más difícil conseguido cada semana">
     ${grid}<line class="wl-base" x1="${L}" x2="${W - R}" y1="${base}" y2="${base}"/>${bars}${xl}<rect class="wl-band" x="0" y="${T}" width="${bw}" height="${plotH}" rx="6"/>${hits}</svg>

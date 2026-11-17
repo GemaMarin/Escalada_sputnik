@@ -114,7 +114,7 @@ export async function progressImage(d) {
   const ax = 100; const ay = 110; const ar = 70;
   ctx.save(); ctx.beginPath(); ctx.arc(ax + ar, ay + ar, ar, 0, Math.PI * 2); ctx.closePath(); ctx.fillStyle = 'rgba(255,255,255,.3)'; ctx.fill(); ctx.clip();
   if (av) { const s = Math.max((ar * 2) / av.width, (ar * 2) / av.height); ctx.drawImage(av, ax + ar - (av.width * s) / 2, ay + ar - (av.height * s) / 2, av.width * s, av.height * s); }
-  else { ctx.fillStyle = '#fff'; ctx.font = '800 70px Outfit, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText((d.name || '🧗')[0].toUpperCase(), ax + ar, ay + ar + 25); ctx.textAlign = 'left'; }
+  else { ctx.fillStyle = '#fff'; ctx.font = '800 70px Outfit, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(d.name ? [...d.name][0].toUpperCase() : '🧗', ax + ar, ay + ar + 25); ctx.textAlign = 'left'; }
   ctx.restore();
   ctx.lineWidth = 6; ctx.strokeStyle = '#fff'; ctx.beginPath(); ctx.arc(ax + ar, ay + ar, ar, 0, Math.PI * 2); ctx.stroke();
 
@@ -132,9 +132,9 @@ export async function progressImage(d) {
     ctx.beginPath(); ctx.arc(mx, my, mr, 0, Math.PI * 2); ctx.fillStyle = d.level.color; ctx.fill();
     ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.12)'; ctx.stroke();
     ctx.fillStyle = textOn(d.level.color.startsWith('#') ? d.level.color : '#888'); ctx.textAlign = 'center';
-    ctx.font = '800 56px Outfit, system-ui, sans-serif'; ctx.fillText(String(d.level.num), mx, my + 14);
-    ctx.font = '700 18px Outfit, system-ui, sans-serif'; ctx.fillText('NIVEL', mx, my + 40); ctx.textAlign = 'left';
-    ctx.fillStyle = '#fff'; ctx.font = '600 30px Outfit, system-ui, sans-serif'; ctx.fillText('Mi color', 270, 362);
+    const num = String(d.level.num); ctx.font = `800 ${num.length > 2 ? 44 : 56}px Outfit, system-ui, sans-serif`; ctx.fillText(num, mx, my + 14);
+    ctx.font = '700 18px Outfit, system-ui, sans-serif'; ctx.fillText(d.level.cap || 'NIVEL', mx, my + 40); ctx.textAlign = 'left';
+    ctx.fillStyle = '#fff'; ctx.font = '600 30px Outfit, system-ui, sans-serif'; ctx.fillText(d.level.title || 'Mi color', 270, 362);
     ctx.font = '800 60px Outfit, system-ui, sans-serif'; ctx.fillText(d.level.name, 270, 422);
     if (d.level.next) { ctx.font = '600 28px Outfit, system-ui, sans-serif'; ctx.textAlign = 'right'; ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.fillText(`Siguiente: ${d.level.next}`, W - 90, 422); ctx.textAlign = 'left'; }
   }
@@ -154,7 +154,7 @@ export async function progressImage(d) {
   // Por color
   let y = 760;
   ctx.fillStyle = '#1a1512'; ctx.font = '800 40px Outfit, system-ui, sans-serif'; ctx.fillText(d.rowsTitle || 'Conseguidos por color', 80, y); y += 30;
-  const rows = d.rows.slice(0, 7);
+  const rows = d.rows.slice(0, d.weeks?.some((w) => w.color) ? 5 : 7);
   const max = Math.max(1, ...rows.map((r) => r.sent));
   rows.forEach((r) => {
     pill(ctx, 80, y, r.label, r.color, 50, 27);
@@ -167,7 +167,7 @@ export async function progressImage(d) {
 
   // Últimas semanas
   if (d.weeks?.some((w) => w.color)) {
-    const top = Math.max(y + 10, 1150);
+    const top = Math.max(y + 56, 1150);
     ctx.fillStyle = '#7d7169'; ctx.font = '600 26px Outfit, system-ui, sans-serif'; ctx.fillText('Mi nivel, semana a semana', 80, top - 14);
     const n = d.weeks.length; const gap = 10; const bw = (W - 160 - gap * (n - 1)) / n; const maxH = 70;
     d.weeks.forEach((w, i) => {
