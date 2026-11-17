@@ -1701,12 +1701,25 @@ async function exportData() {
   const photos = await Promise.all([...state.photos.values()].map(async ({ blob, ...p }) => ({ ...p, data: await blobToDataURL(blob) })));
   const av = await db.get('settings', 'avatar');
   const data = { app: 'escalada-sputnik', version: 2, exportedAt: new Date().toISOString(), settings: state.settings, sessions: state.sessions, photos, avatar: av?.blob ? await blobToDataURL(av.blob) : null };
-  const url = URL.createObjectURL(new Blob([JSON.stringify(data)], { type: 'application/json' }));
-  const a = Object.assign(document.createElement('a'), { href: url, download: `escalada-sputnik-${I.today()}.json` });
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 5000);
+  const name = `escalada-sputnik-${I.today()}.json`;
+  const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+  // En el móvil (sobre todo iPhone con la app instalada) la descarga directa puede no funcionar:
+  // se usa el menú Compartir del sistema («Guardar en Archivos», WhatsApp, correo…).
+  let file = null; try { file = new File([blob], name, { type: 'application/json' }); } catch { /* sin soporte */ }
+  if (file && navigator.canShare?.({ files: [file] }) && /android|iphone|ipad|ipod/i.test(navigator.userAgent)) {
+    try { await navigator.share({ files: [file], title: 'Copia de Mi Escalada' }); }
+    catch (e) { if (e?.name === 'AbortError') { toast('Copia cancelada'); return; } downloadBlob(blob, name); }
+  } else downloadBlob(blob, name);
   state.settings.lastBackup = Date.now(); await saveSettings();
+  toast('Copia lista ✅ Guárdala en un sitio seguro');
   if (route() === 'inicio') rerender();
+}
+
+function downloadBlob(blob, name) {
+  const url = URL.createObjectURL(blob);
+  const a = Object.assign(document.createElement('a'), { href: url, download: name });
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
 
 async function importData(file) {

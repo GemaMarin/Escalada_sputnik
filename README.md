@@ -35,6 +35,13 @@ Funciona en el móvil, se puede instalar en la pantalla de inicio y funciona sin
 - **Logros** desbloqueables y **compartir** el resumen de una sesión.
 - **Copia de seguridad** (descargar/restaurar, fotos incluidas) y **datos de ejemplo** para probarla.
 
+## Actualización de bloques y vías
+
+- **Al abrir la app** (o volver a ella) se piden los bloques y vías montados en ese momento al widget público de Vertical-Life de Sputnik Legazpi, si la última consulta tiene más de 3 horas. No hay que tocar nada.
+- **Cada mañana** (y los jueves por la tarde) GitHub Actions publica una copia de los bloques con el plano y la foto de cada uno. Esa copia se usa sin conexión o si Vertical-Life no responde.
+- El propio flujo se reactiva en cada ejecución para que GitHub no desactive la tarea diaria tras 60 días sin cambios en el repositorio.
+- Las versiones nuevas de la app se cargan solas al abrirla (si estaba abierta, se recarga una vez).
+
 ## Privacidad
 
 No hay servidor ni cuentas: todo se guarda en el propio navegador del móvil (IndexedDB).
