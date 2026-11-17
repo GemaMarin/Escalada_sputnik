@@ -165,7 +165,7 @@ const routes = [
   [/^#\/sala$/, viewGym, 'sala'],
   [/^#\/progreso$/, viewProgress, 'progreso'],
   [/^#\/cuerpo$/, viewProgress, 'progreso'],
-  [/^#\/ajustes$/, viewSettings, 'ajustes'],
+  [/^#\/ajustes$/, viewSettings, 'perfil'],
   [/^#\/eventos$/, viewEvents, 'novedades'],
   [/^#\/novedades$/, viewEvents, 'novedades'],
   [/^#\/objetivos$/, viewObjectives, 'objetivos'],
@@ -185,6 +185,7 @@ function render({ transition = false } = {}) {
       if (!render.keepScroll) [...view.children].forEach((c, i) => c.style.setProperty('--i', Math.min(i, 10)));
       document.querySelectorAll('.tabbar a').forEach((a) => a.classList.toggle('active', a.dataset.tab === tab));
       document.body.dataset.route = tab;
+      const me = $('[data-me]'); if (me) me.innerHTML = avatarHTML();
       if (!render.keepScroll) window.scrollTo(0, 0);
       render.keepScroll = false;
     };
@@ -1304,7 +1305,7 @@ function viewGym() {
     <div class="filter-bar">
       <label class="select">${icon('pin')}<select data-gym-select="gymSector" aria-label="Sector"><option value="all">Todos los sectores</option>${sectors.map((x) => `<option ${ui.gymSector === x ? 'selected' : ''} value="${esc(x)}">${esc(x)}</option>`).join('')}</select></label>
       <button class="chip ${ui.gymFilter === 'new' ? 'on' : ''}" data-action="gym-filter" data-v="new">${icon('sparkle')} Nuevos</button>
-      <button class="icon-btn ${ui.gymMap ? 'on' : ''}" data-action="gym-map" aria-label="Mapa de sectores">${icon('map')}</button>
+      <button class="chip map-btn ${ui.gymMap ? 'on' : ''}" data-action="gym-map">${icon('map')} Plano</button>
     </div>
     ${ui.gymMap ? gymMapCard(sectors.map((name) => ({ name, id: sectorMeta[name] }))) : ''}
     ${filtersOn ? `<p class="filters-note">${plural(filtered.length, 'resultado', 'resultados')} · <button class="link" data-action="gym-clear">Ver todos</button></p>` : ''}
@@ -1325,6 +1326,7 @@ function gymMapCard(sectors) {
   const activeId = sectors.find((s) => s.name === state.ui.gymSector)?.id;
   const withTopo = known.map((s) => ({ ...s, topo: state.gymSectors[s.id] })).filter((s) => s.topo);
   return `<div class="card map-card">
+    ${withTopo.length ? '<p class="map-hint">Toca un sector para ver sus bloques.</p>' : ''}
     ${withTopo.length ? S.sectorMapHTML(withTopo, activeId) : missing.length ? '<div class="skel tall"></div>' : '<p class="muted small">El plano de la sala aún no está disponible.</p>'}
   </div>`;
 }
@@ -1502,7 +1504,8 @@ function viewSettings() {
   const st = set();
   const scale = M.boulderScale(st);
   const demoCount = state.sessions.filter((s) => s.demo).length;
-  return `<h1 class="page-title">Ajustes</h1>
+  return `<div class="topline"><a href="#/perfil" class="back">${icon('back')} Perfil</a></div>
+    <h1 class="page-title">Ajustes</h1>
     <div class="card form">
       <div class="set-avatar"><label class="prof-photo sm" aria-label="Cambiar foto">${avatarHTML('lg')}<span class="prof-cam">${icon('camera')}</span><input type="file" accept="image/*" data-upload="avatar" hidden></label>
         <div><b>Foto de perfil</b><small class="muted">Toca para cambiarla</small>${state.avatarURL ? '<button class="link danger" data-action="avatar-del">Quitar foto</button>' : ''}</div></div>
